@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.pt
+*.pyc
+.DS_Store
+venv/
+*.egg-info/
+.eggs/
+dist/
+build/
+*.log
+*.tmp
+_scatter_ckpt_*.pt
+data/malinois/
+data/eval_sets.pkl
+analysis/figures/

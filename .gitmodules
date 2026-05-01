@@ -1,0 +1,3 @@
+[submodule "boda2"]
+	path = boda2
+	url = git@github.com:sjgosai/boda2.git

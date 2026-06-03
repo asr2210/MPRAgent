@@ -1,0 +1,31 @@
+experiment	eval_01	eval_02	eval_03	eval_04	eval_05	eval_06	eval_07	eval_08	eval_09	eval_10	eval_11	eval_12	eval_13	eval_14	mean_r	time_s	description
+001_dhs_stratified	0.0739	0.0722	0.0927	0.0850	0.0722	0.0737	0.1454	0.0627	0.0850	0.1286	0.0737	0.0927	0.1408	0.0739	0.0909	37.1	DHS 16-NMF-stratified, 3125/component, Meuleman 160k subset
+002_dhs_plus_dirichlet	0.0765	0.0747	0.0965	0.0887	0.0747	0.0767	0.1464	0.0728	0.0887	0.1300	0.0767	0.0965	0.1443	0.0765	0.0942	29.0	25k DHS stratified + 25k Dirichlet(1,1,1,1) composition synthetic
+003_motif_embedded	0.0671	0.0655	0.0872	0.0820	0.0655	0.0671	0.1328	0.0602	0.0820	0.1146	0.0671	0.0872	0.1274	0.0671	0.0866	27.0	4-8 JASPAR vertebrate motifs embedded in random 200bp backgrounds
+004_dirichlet_extreme	0.0786	0.0769	0.0988	0.0902	0.0769	0.0788	0.1455	0.0716	0.0902	0.1285	0.0788	0.0988	0.1431	0.0786	0.0954	32.0	Dirichlet(0.3) per-sequence composition synthetic
+005_dirichlet_0p1	0.0752	0.0737	0.0970	0.0865	0.0737	0.0755	0.1429	0.0667	0.0865	0.1228	0.0755	0.0970	0.1404	0.0752	0.0935	27.0	Dirichlet(0.1) very-extreme composition
+006_dirichlet_plus_topsignal_dhs	0.0780	0.0763	0.0980	0.0889	0.0763	0.0783	0.1445	0.0673	0.0889	0.1281	0.0783	0.0980	0.1422	0.0780	0.0958	31.0	25k Dirichlet(0.3) + 25k top-signal DHS (top 25%)
+007_markov_dirichlet	0.0765	0.0748	0.0985	0.0899	0.0748	0.0764	0.1452	0.0708	0.0899	0.1239	0.0764	0.0985	0.1437	0.0765	0.0944	27.0	Per-sequence Markov chain, 4x4 transition with Dirichlet(0.3) rows
+008_dhs_gc_stratified	0.0737	0.0721	0.0914	0.0831	0.0721	0.0733	0.1454	0.0693	0.0831	0.1286	0.0733	0.0914	0.1415	0.0737	0.0901	30.0	DHS sequences GC-binned into 10 quantiles, 5000/bin
+009_replicated_dirichlet	0.0732	0.0716	0.0907	0.0843	0.0716	0.0734	0.1382	0.0511	0.0843	0.1168	0.0734	0.0907	0.1381	0.0732	0.0894	44.9	5000 unique Dirichlet(0.3) × 10 copies (noise averaging test, FAILED)
+010_dirichlet_multi_alpha	0.0772	0.0754	0.0974	0.0909	0.0754	0.0771	0.1478	0.0716	0.0909	0.1309	0.0771	0.0974	0.1444	0.0772	0.0950	25.0	10k each at alpha={0.1,0.3,0.7,1.5,3.0} Dirichlet mix
+011_top_signal_dhs	0.0745	0.0729	0.0924	0.0872	0.0729	0.0743	0.1432	0.0653	0.0872	0.1289	0.0743	0.0924	0.1386	0.0745	0.0913	15.0	Top 50k DHS by total_signal (cutoff=11.4, median=27.8)
+012_block_composition	0.0748	0.0733	0.0955	0.0864	0.0733	0.0748	0.1412	0.0618	0.0864	0.1208	0.0748	0.0955	0.1353	0.0748	0.0910	16.0	Each seq = 2 x 100bp blocks with independent Dirichlet(0.3)
+013_shuffled_dhs	0.0754	0.0737	0.0967	0.0855	0.0737	0.0752	0.1421	0.0686	0.0855	0.1214	0.0752	0.0967	0.1420	0.0754	0.0919	14.0	DHS NMF-stratified, each seq internally shuffled (composition preserved)
+014_gc_stratified_dirichlet	0.0775	0.0758	0.0985	0.0908	0.0758	0.0774	0.1464	0.0700	0.0908	0.1267	0.0774	0.0985	0.1434	0.0775	0.0948	23.0	200k Dirichlet(0.3) comps -> 10 GC quantile bins x 5000 sequences
+015_dirichlet_0p5	0.0768	0.0751	0.0965	0.0895	0.0751	0.0764	0.1471	0.0726	0.0895	0.1289	0.0764	0.0965	0.1445	0.0768	0.0944	59.0	Dirichlet(0.5) - alpha refinement; confirms peak at 0.3
+016_dirichlet_plus_shuffled_dhs	0.0776	0.0757	0.0974	0.0901	0.0757	0.0778	0.1440	0.0722	0.0901	0.1268	0.0778	0.0974	0.1438	0.0776	0.0946	47.0	25k Dirichlet(0.3) + 25k shuffled DHS (best synth + best bio combo)
+017_dirichlet_mid_gc	0.0773	0.0756	0.0971	0.0924	0.0756	0.0774	0.1476	0.0712	0.0924	0.1287	0.0774	0.0971	0.1441	0.0773	0.0951	36.0	Dirichlet(0.3) with GC in [0.3,0.7] rejection sampling
+018_random_hg38	0.0735	0.0719	0.0949	0.0823	0.0719	0.0736	0.1424	0.0640	0.0823	0.1229	0.0736	0.0949	0.1432	0.0735	0.0903	48.0	Random 50k 200bp windows from hg38 autosomes+chrX, N-rejected
+019_dirichlet_4d_stratified	0.0773	0.0756	0.0977	0.0903	0.0756	0.0773	0.1466	0.0714	0.0903	0.1268	0.0773	0.0977	0.1445	0.0773	0.0948	36.0	Dirichlet(0.3) 4D-stratified (5x5x5x5=625 bins, 80/bin)
+020_exact_composition_dirichlet	0.0771	0.0756	0.0987	0.0907	0.0756	0.0771	0.1457	0.0691	0.0907	0.1276	0.0771	0.0987	0.1442	0.0771	0.0947	32.0	Dirichlet(0.3) compositions w/ exact-count sequence (no multinomial noise)
+021_dirichlet_0p05	0.0747	0.0732	0.0958	0.0844	0.0732	0.0757	0.1411	0.0601	0.0844	0.1157	0.0757	0.0958	0.1371	0.0747	0.0901	57.0	Dirichlet(0.05) very extreme alpha; only 27k unique sequences
+022_dirichlet_rc_augmented	0.0775	0.0758	0.0975	0.0899	0.0758	0.0779	0.1456	0.0695	0.0899	0.1286	0.0779	0.0975	0.1451	0.0775	0.0954	52.0	25k Dirichlet(0.3) + 25k RCs - strand augmentation test
+023_dirichlet_fine_mix	0.0779	0.0763	0.0993	0.0903	0.0763	0.0780	0.1452	0.0728	0.0903	0.1270	0.0780	0.0993	0.1435	0.0779	0.0952	83.0	16.7k each at alpha={0.2,0.3,0.4} - fine mix near peak
+024_small_dose_hg38	0.0777	0.0760	0.0980	0.0896	0.0760	0.0778	0.1459	0.0710	0.0896	0.1279	0.0778	0.0980	0.1426	0.0777	0.0951	64.0	40k Dirichlet(0.3) + 10k random hg38 (small bio dose)
+025_dirichlet_0p3_seed1	0.0776	0.0760	0.0973	0.0893	0.0760	0.0777	0.1455	0.0696	0.0893	0.1278	0.0777	0.0973	0.1441	0.0776	0.0950	61.0	Dirichlet(0.3) seed=1 - variance test vs exp 004 (seed 0 = 0.0786)
+026_chaotic_mix	0.0784	0.0766	0.0990	0.0896	0.0766	0.0785	0.1460	0.0681	0.0896	0.1266	0.0785	0.0990	0.1455	0.0784	0.0950	50.0	10k each: Dirichlet(0.3) + Dir(0.1) + shuffled DHS + hg38 + Markov-Dir(0.3)
+027_dirichlet_multi_seed	0.0775	0.0758	0.0983	0.0900	0.0758	0.0777	0.1450	0.0701	0.0900	0.1276	0.0777	0.0983	0.1447	0.0775	0.0951	58.0	Multi-seed Dirichlet(0.3) - 16.7k each from seeds 0,1,2
+028_dirichlet_0p3_seed2	0.0777	0.0759	0.0977	0.0905	0.0759	0.0773	0.1469	0.0735	0.0905	0.1273	0.0773	0.0977	0.1438	0.0777	0.0953	61.0	Dirichlet(0.3) seed=2 - variance probe (seed=0=0.0786, seed=1=0.0776)
+029_dirichlet_0p3_seed3	0.0775	0.0759	0.0989	0.0898	0.0759	0.0778	0.1455	0.0703	0.0898	0.1276	0.0778	0.0989	0.1434	0.0775	0.0948	21.0	Dirichlet(0.3) seed=3 - final seed in probe; confirms seed=0 (0.0786) is best
+030_final_submission	0.0786	0.0769	0.0988	0.0902	0.0769	0.0788	0.1455	0.0716	0.0902	0.1285	0.0788	0.0988	0.1431	0.0786	0.0954	59.0	FINAL SUBMISSION: Dirichlet(0.3) seed=0 (replica of best exp 004)

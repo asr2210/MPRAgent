@@ -1,0 +1,31 @@
+experiment	eval_01	eval_02	eval_03	eval_04	eval_05	eval_06	eval_07	eval_08	eval_09	eval_10	eval_11	eval_12	eval_13	eval_14	time_s	description
+001_synthseqs_topic_weighted	0.1319	0.1321	0.1341	0.1319	0.1321	0.1330	0.1253	0.0605	0.1319	0.1214	0.1330	0.1341	0.1280	0.1319	27.6	SynthSeqs (Meuleman) sampled with natural NMF-topic-frequency weights, 50k
+002_dirichlet_composition	0.1395	0.1399	0.1385	0.1332	0.1399	0.1400	0.1304	0.0626	0.1332	0.1212	0.1400	0.1385	0.1309	0.1395	42.0	Dirichlet(0.5) base-freq per sequence, 200bp iid multinomial — v06 best baseline replica
+003_markov_dirichlet	0.1346	0.1348	0.1346	0.1341	0.1348	0.1357	0.1278	0.0598	0.1341	0.1217	0.1357	0.1346	0.1316	0.1346	34.0	First-order Markov chains with per-sequence Dirichlet(0.5) transition matrix and initial dist
+004_dirichlet_plus_synthseqs	0.1359	0.1359	0.1349	0.1336	0.1359	0.1363	0.1322	0.0615	0.1336	0.1201	0.1363	0.1349	0.1257	0.1359	32.0	50% Dirichlet(0.5) + 50% SynthSeqs (topic-weighted), shuffled
+005_dirichlet_mixed_alpha	0.1377	0.1379	0.1369	0.1346	0.1379	0.1380	0.1291	0.0646	0.1346	0.1215	0.1380	0.1369	0.1316	0.1377	41.0	Dirichlet with per-sequence alpha log-uniform on (0.3, 2.0)
+006_dirichlet_jaspar_motifs	0.1364	0.1366	0.1354	0.1337	0.1366	0.1372	0.1294	0.0632	0.1337	0.1181	0.1372	0.1354	0.1283	0.1364	44.0	Dirichlet(0.5) backbone with 2 JASPAR 2024 vertebrate motif instances inserted per sequence
+007_sobol_simplex	0.1371	0.1373	0.1365	0.1341	0.1373	0.1376	0.1287	0.0639	0.1341	0.1209	0.1376	0.1365	0.1325	0.1371	37.0	Sobol low-discrepancy simplex coverage (uniform), iid 200bp per composition
+008_dhs_composition_iid	0.1354	0.1358	0.1352	0.1342	0.1358	0.1362	0.1291	0.0651	0.1342	0.1238	0.1362	0.1352	0.1302	0.1354	27.0	Topic-weighted synthseqs but each replaced with iid bases at same per-sequence composition
+009_dirichlet_gradient	0.1369	0.1370	0.1354	0.1358	0.1370	0.1376	0.1290	0.0686	0.1358	0.1212	0.1376	0.1354	0.1339	0.1369	25.0	Per-position composition linearly interpolated between two Dirichlet(0.5) endpoints; iid sampled
+010_dirichlet_alpha03	0.1344	0.1347	0.1337	0.1331	0.1347	0.1349	0.1296	0.0617	0.1331	0.1200	0.1349	0.1337	0.1309	0.1344	26.0	Pure Dirichlet(0.3) — more extreme compositions
+011_dirichlet_mode_stratified	0.1356	0.1358	0.1344	0.1346	0.1358	0.1355	0.1297	0.0641	0.1346	0.1202	0.1355	0.1344	0.1300	0.1356	26	Mode-stratified Dirichlet(0.5): 12 (dom,sec) modes equal counts from 500k candidates
+012_synthseqs_topic_uniform	0.1314	0.1317	0.1338	0.1336	0.1317	0.1332	0.1278	0.0588	0.1336	0.1217	0.1332	0.1338	0.1270	0.1314	30	SynthSeqs uniform across 16 NMF components (3125 per component)
+013_dirichlet_trimmed	0.1379	0.1381	0.1370	0.1338	0.1381	0.1386	0.1290	0.0673	0.1338	0.1190	0.1386	0.1370	0.1308	0.1379	29	Dirichlet(0.5) rejected if any base proportion < 0.03 (trims near-homopolymer tail)
+014_dirichlet_seed99	0.1365	0.1368	0.1355	0.1349	0.1368	0.1370	0.1278	0.0624	0.1349	0.1224	0.1370	0.1355	0.1316	0.1365	30	Dirichlet(0.5) with seed=99 (vs seed=42 for exp 002, noise floor measurement)
+015_block_dirichlet	0.1348	0.1351	0.1347	0.1341	0.1351	0.1358	0.1291	0.0600	0.1341	0.1227	0.1358	0.1347	0.1311	0.1348	29	Each 200bp = 4 blocks of 50bp, each block its own Dirichlet(0.5) composition
+016_dirichlet_seed0	0.1365														30	Dirichlet(0.5) seed=0 (seed scan)
+017_dirichlet_seed7	0.1375														30	Dirichlet(0.5) seed=7 (seed scan)
+018_dirichlet_seed137	0.1376														30	Dirichlet(0.5) seed=137 (seed scan)
+019_dirichlet_seed1	0.1362														30	Dirichlet(0.5) seed=1
+020_dirichlet_seed11	0.1374														30	Dirichlet(0.5) seed=11
+021_dirichlet_seed53	0.1375														30	Dirichlet(0.5) seed=53
+022_dirichlet_alpha045	0.1354														30	Dirichlet(0.45) fine alpha sweep
+023_dirichlet_alpha055	0.1371														30	Dirichlet(0.55) fine alpha sweep
+024_dirichlet_05_plus_02tail	0.1368														30	90% Dirichlet(0.5) + 10% Dirichlet(0.2) extreme tail
+025_dirichlet_plus_k562synth	0.1356														30	90% Dirichlet(0.5) + 10% synthseqs component 15 K562
+026_dirichlet_asymmetric	0.1385														30	Asymmetric Dirichlet alpha=(0.4,0.6,0.6,0.4) GC-favored
+027_dirichlet_multiseed_union	0.1378														30	Multi-seed Dirichlet(0.5) union: 5k from each of seeds 0-9
+028_dirichlet_asymmetric_seed99	0.1379														30	Asymmetric Dirichlet(0.4,0.6,0.6,0.4) at seed=99 (verify 026)
+029_dirichlet_manual_compositions	0.1356														30	Hand-designed corners+edges+interior+random Dirichlet mixture
+030_final_dirichlet_hybrid	0.1369	0.1370	0.1360	0.1351	0.1370	0.1375	0.1309	0.0618	0.1351	0.1202	0.1375	0.1360	0.1310	0.1369	30	35k Dirichlet(0.5)+15k asymmetric(0.4,0.6,0.6,0.4) seed=42 hybrid

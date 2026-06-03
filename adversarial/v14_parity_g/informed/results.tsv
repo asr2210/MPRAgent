@@ -1,0 +1,31 @@
+experiment	eval_01	eval_02	eval_03	eval_04	eval_05	eval_06	eval_07	eval_08	eval_09	eval_10	eval_11	eval_12	eval_13	eval_14	time_s	description
+001_ccre_random	0.0016	0.0015	-0.0019	-0.0014	0.0015	0.0009	-0.0017	0.0017	-0.0014	-0.0012	0.0009	-0.0019	0.0054	0.0016	11.6	Uniform sample of ENCODE cCREs V3 (1.06M elements), 200bp centered
+002_ccre_replicate_x10	0.0021	0.0020	0.0007	-0.0017	0.0020	0.0025	-0.0025	-0.0010	-0.0017	-0.0020	0.0025	0.0007	0.0045	0.0021	18.2	5000 unique cCREs each replicated 10x
+003_motif_packed	-0.0037	-0.0037	-0.0060	-0.0050	-0.0037	-0.0040	-0.0032	0.0032	-0.0050	-0.0064	-0.0040	-0.0060	0.0099	-0.0037	22.8	Synthetic 200bp with 4-8 strong TF motifs inserted (14 motifs)
+004_bimodal_motif_vs_random	0.0026	0.0029	0.0031	0.0003	0.0029	0.0035	0.0013	-0.0035	0.0003	-0.0003	0.0035	0.0031	-0.0090	0.0026	16	25k motif-packed + 25k random uniform interleaved
+005_random_genomic	-0.0008	-0.0011	-0.0004	0.0008	-0.0011	-0.0019	-0.0050	0.0001	0.0008	-0.0009	-0.0019	-0.0004	0.0015	-0.0008	14	50k random 200bp windows from hg38 autosomes+XY
+006_dhs_meuleman	-0.0008	-0.0010	-0.0042	-0.0027	-0.0010	-0.0006	-0.0033	0.0044	-0.0027	0.0041	-0.0006	-0.0042	-0.0017	-0.0008	14	DHS Meuleman 16-component stratified, summit-centered
+007_dhs_bimodal_signal	0.0013	0.0014	0.0049	-0.0054	0.0014	0.0010	-0.0014	0.0035	-0.0054	0.0027	0.0010	0.0049	0.0042	0.0013	18.1	Top 25k + bottom 25k DHS by mean signal (max activity contrast)
+008_reporter_construct	-0.0039	-0.0041	-0.0011	0.0000	-0.0041	-0.0037	0.0065	-0.0034	0.0000	-0.0033	-0.0037	-0.0011	0.0047	-0.0039	21	140bp enhancer (4-8 TF motifs) + 60bp fixed minP-like cassette
+009_mpra_real	-0.0002	-0.0004	0.0007	0.0005	-0.0004	0.0003	0.0004	0.0050	0.0005	0.0067	0.0003	0.0007	-0.0018	-0.0002	14	Sharpr-MPRA top+bottom 25k by mean activity, 145bp core + 27/28bp random pad
+010_ccre_class_stratified	-0.0002	-0.0001	0.0015	-0.0012	-0.0001	0.0010	-0.0074	0.0039	-0.0012	-0.0005	0.0010	0.0015	-0.0068	-0.0002	18	5 cCRE classes (PLS,pELS,dELS,CTCF-only,DNase-H3K4me3) 10k each
+011_multisource_merge	-0.0007	-0.0007	-0.0003	-0.0008	-0.0007	-0.0005	-0.0034	0.0043	-0.0008	-0.0037	-0.0005	-0.0003	0.0048	-0.0007	12	5 sources (cCRE-PLS/dELS, DHS-top, Sharpr-top/bottom) 10k each
+012_motif_grammar	-0.0002	-0.0004	0.0039	-0.0004	-0.0004	0.0001	-0.0055	-0.0073	-0.0004	-0.0050	0.0001	0.0039	0.0053	-0.0002	17	Combinatorial motif-pair coverage (14 TFs, all ordered pairs, varied spacing)
+013_variant_augmented	-0.0002	-0.0001	0.0002	-0.0039	-0.0001	-0.0004	-0.0004	0.0028	-0.0039	-0.0003	-0.0004	0.0002	0.0062	-0.0002	12	5k Sharpr-MPRA top parents x 10 single-substitution variants
+014_revcomp_augmented	0.0003	0.0009	-0.0011	0.0007	0.0009	0.0006	0.0025	-0.0001	0.0007	0.0055	0.0006	-0.0011	0.0042	0.0003	14	Sharpr top+bottom 12.5k each + reverse complement of each parent
+015_kmer_maxdiverse	-0.0015	-0.0017	0.0006	-0.0017	-0.0017	-0.0009	-0.0023	-0.0101	-0.0017	0.0063	-0.0009	0.0006	-0.0059	-0.0015	14	Greedy construction to maximize unique 6-mer coverage
+016_motif_vocab50	0.0010	0.0015	0.0024	0.0034	0.0015	0.0019	0.0030	-0.0007	0.0034	-0.0048	0.0019	0.0024	0.0026	0.0010	14	50-TF consensus motif vocabulary, 4-8 motifs per sequence
+017_vocab50_bimodal	0.0001	0.0001	0.0025	-0.0023	0.0001	-0.0003	0.0022	0.0001	-0.0023	0.0014	-0.0003	0.0025	-0.0010	0.0001	13.1	016 design but bimodal: 25k motif-packed + 25k random
+018_vocab50_dense	-0.0011	-0.0006	0.0027	-0.0027	-0.0006	0.0000	-0.0028	-0.0010	-0.0027	-0.0001	0.0000	0.0027	-0.0030	-0.0011	12.6	016 design but 8-16 motifs per sequence (vs 4-8)
+019_vocab50_rc	0.0025	0.0030	0.0044	-0.0001	0.0030	0.0024	0.0053	0.0020	-0.0001	-0.0065	0.0024	0.0044	0.0034	0.0025	12.9	016 design + reverse complement of each parent (25k+25k)
+020_motifs_in_ccre	-0.0010	-0.0014	-0.0043	-0.0037	-0.0014	-0.0015	-0.0049	-0.0006	-0.0037	0.0095	-0.0015	-0.0043	-0.0031	-0.0010	21.3	50-vocab motifs embedded inside real cCRE backbones (5 classes 10k each)
+021_bimodal_motif_rc	0.0001	0.0008	0.0024	0.0015	0.0008	0.0005	0.0067	-0.0034	0.0015	-0.0028	0.0005	0.0024	0.0022	0.0001	31.3	004 + 019 combo: 12.5k motif + RC + 12.5k random + RC
+022_repeat_seed_019	0.0013	0.0014	0.0006	-0.0037	0.0014	0.0015	-0.0102	0.0090	-0.0037	0.0100	0.0015	0.0006	0.0082	0.0013	26.3	019 recipe with SEED=1 (reproducibility test)
+023_flagship_v1	-0.0018	-0.0018	-0.0021	0.0003	-0.0018	-0.0015	-0.0063	-0.0017	0.0003	0.0016	-0.0015	-0.0021	-0.0058	-0.0018	17.9	Flagship v1: cCRE classes + Sharpr poles + synth motif + RC
+024_flagship_v2	0.0012	0.0014	0.0028	-0.0001	0.0014	0.0019	0.0012	0.0021	-0.0001	-0.0041	0.0019	0.0028	0.0003	0.0012	15.8	Flagship v2: drop Sharpr from v1, more cCRE+motif+RC
+025_flagship_v3	-0.0009	-0.0007	0.0015	0.0020	-0.0007	-0.0009	0.0016	-0.0024	0.0020	-0.0023	-0.0009	0.0015	-0.0031	-0.0009	17.9	Flagship v3: motifs-in-cCRE backbones + Sharpr poles + RC
+026_cpg_enriched	-0.0050	-0.0053	-0.0025	0.0027	-0.0053	-0.0037	0.0006	0.0001	0.0027	0.0011	-0.0037	-0.0025	-0.0010	-0.0050	21.5	cCRE seqs filtered to CpG-island-like (GC>0.55, CpG O/E>0.65)
+027_motifs_only_rc	-0.0005	-0.0000	0.0017	0.0014	-0.0000	-0.0002	-0.0108	0.0002	0.0014	0.0004	-0.0002	0.0017	-0.0031	-0.0005	20.5	Ablation: cCRE 5-class (5k each) + RC of each (no motifs, no Sharpr)
+028_sharpr_only_rc	0.0003	0.0009	-0.0011	0.0007	0.0009	0.0006	0.0025	-0.0001	0.0007	0.0055	0.0006	-0.0011	0.0042	0.0003	21.5	Ablation: Sharpr top+bottom 12.5k each + RC (no cCRE, no synth)
+029_flagship_v4	0.0001	0.0003	0.0009	-0.0045	0.0003	0.0004	0.0045	0.0042	-0.0045	-0.0022	0.0004	0.0009	0.0048	0.0001	29.4	Flagship v4: cCRE multi-class + Sharpr poles + synth motif + motif-in-cCRE, all RC
+030_flagship_v4_seed1	0.0007	0.0005	0.0018	-0.0039	0.0005	-0.0008	-0.0006	0.0068	-0.0039	-0.0024	-0.0008	0.0018	-0.0041	0.0007	14.5	Flagship v4 with SEED=1 (reproducibility test of final design)

@@ -1,0 +1,31 @@
+experiment	eval_01	eval_02	eval_03	eval_04	eval_05	eval_06	eval_07	eval_08	eval_09	eval_10	eval_11	eval_12	eval_13	eval_14	time_s	description
+001_synth_random	0.3068	0.3069	0.3309	0.2669	0.3069	0.3294	0.4024	0.1098	0.2669	0.3566	0.3294	0.3309	0.3809	0.3068	43.5	pure random iid {ACGT}, seed 0, n=50000
+002_genome_random	0.4992	0.4999	0.5396	0.5226	0.4999	0.5372	0.5985	0.0916	0.5226	0.5529	0.5372	0.5396	0.6020	0.4992	44.6	random 200bp tiles from hg38 chr1/17/19/22, no annotation
+003_dhs_stratified	0.4378	0.4385	0.4644	0.4690	0.4385	0.4593	0.4521	0.1016	0.4690	0.5036	0.4593	0.4644	0.4672	0.4378	49.9	SynthSeqs train, 3125 per NMF component (16), no extra weighting
+004_dhs_genome_mix	0.4926	0.4934	0.5309	0.5126	0.4934	0.5312	0.5956	0.0917	0.5126	0.5452	0.5312	0.5309	0.5877	0.4926	46.2	50/50 mix of 25k genome random + 25k DHS-stratified
+005_markov_k4	0.2681	0.2687	0.2848	0.2162	0.2687	0.2748	0.3902	0.0939	0.2162	0.2833	0.2748	0.2848	0.3599	0.2681	121.0	4th-order Markov chain trained on hg38 chr1/17/19/22
+006_genome_broad	0.4823	0.4831	0.5203	0.4882	0.4831	0.5194	0.5951	0.0883	0.4882	0.5342	0.5194	0.5203	0.5905	0.4823	51.5	random 200bp tiles from all 24 hg38 chromosomes
+007_motif_implant	0.3468	0.3473	0.3688	0.3116	0.3473	0.3602	0.4448	0.0879	0.3116	0.3871	0.3602	0.3688	0.4272	0.3468	41.2	3 TF consensus motifs planted in random scaffolds (53 motif library)
+008_genome_aug_motif	0.4958	0.4966	0.5361	0.5194	0.4966	0.5339	0.5989	0.0937	0.5194	0.5443	0.5339	0.5361	0.5994	0.4958	43.7	real genome tiles + 1 planted motif per sequence
+009_promoter_tss	0.3700	0.3704	0.4033	0.4211	0.3704	0.3908	0.3849	0.0816	0.4211	0.4641	0.3908	0.4033	0.4188	0.3700	49.9	200bp windows centered on 40k RefSeq TSSes, +/-50bp jitter
+010_dhs_random_full	0.4699	0.4706	0.5093	0.4989	0.4706	0.5071	0.5481	0.1012	0.4989	0.5376	0.5071	0.5093	0.5548	0.4699	11.8	DHS sampled uniformly from full 3.6M Meuleman index
+011_mouse_random	0.4485	0.4496	0.4975	0.4554	0.4496	0.4859	0.5438	0.0866	0.4554	0.4769	0.4859	0.4975	0.5401	0.4485	10.0	mouse mm10 chr1/11/17/19 random 200bp tiles
+012_human_mouse_mix	0.4839	0.4850	0.5284	0.5019	0.4850	0.5218	0.5749	0.0929	0.5019	0.5221	0.5218	0.5284	0.5822	0.4839	12.0	25k human chr1/17/19/22 + 25k mouse mm10 chr1/11/17/19
+013_human_topsignal_dhs	0.4956	0.4965	0.5335	0.5202	0.4965	0.5330	0.5932	0.0912	0.5202	0.5516	0.5330	0.5335	0.5982	0.4956	13.0	40k human random + 10k top-1% mean_signal DHS sites
+014_seed_variance	0.4987	0.4996	0.5367	0.5206	0.4996	0.5363	0.5973	0.0897	0.5206	0.5475	0.5363	0.5367	0.5996	0.4987	48.3	E2 design 3-seed multi-seed calibration
+015_chr19_22_only	0.4902	0.4914	0.5334	0.5313	0.4914	0.5313	0.5781	0.0900	0.5313	0.5416	0.5313	0.5334	0.5947	0.4902	20.0	random tiles from chr19+chr22 only (max gene density)
+016_ccre_balanced	0.4022	0.4029	0.4342	0.4492	0.4029	0.4223	0.4018	0.0885	0.4492	0.4902	0.4223	0.4342	0.4442	0.4022	15.0	cCRE balanced (12.5k each of PLS/pELS/dELS/other)
+017_quality_filter	0.4069	0.4081	0.4536	0.4453	0.4081	0.4550	0.4799	0.0680	0.4453	0.4981	0.4550	0.4536	0.5147	0.4069	22.0	random tiles after filtering low-complexity/repeat-rich
+018_repeat_rich_only	0.4937	0.4945	0.5331	0.5192	0.4945	0.5319	0.5991	0.0894	0.5192	0.5272	0.5319	0.5331	0.5901	0.4937	29.0	repeat-rich/low-complexity tiles only (inverse of E17 filter)
+019_ultra_repeat_rich	0.4698	0.4707	0.5179	0.4898	0.4707	0.5110	0.5877	0.0804	0.4898	0.5004	0.5110	0.5179	0.5764	0.4698	12.0	ultra-strict repeat-rich filter (12% acceptance)
+020_gene_density_weighted	0.5008	0.5016	0.5404	0.5235	0.5016	0.5392	0.6005	0.0918	0.5235	0.5399	0.5392	0.5404	0.5968	0.5008	12.0	random tiles weighted by per-1Mb gene density across all 24 chroms
+021_gene_density_3seed	0.5023	0.5032	0.5414	0.5232	0.5032	0.5402	0.5993	0.0895	0.5232	0.5389	0.5402	0.5414	0.5940	0.5023	52.0	E20 design with 3 seeds for verification
+022_gene_density_squared	0.5071	0.5080	0.5449	0.5302	0.5080	0.5445	0.5929	0.0882	0.5302	0.5378	0.5445	0.5449	0.5882	0.5071	36.0	gene-density (count+0.5)^2 weighted full-genome 3-seed
+023_gene_density_cubic	0.5030	0.5040	0.5434	0.5328	0.5040	0.5413	0.5845	0.0883	0.5328	0.5353	0.5413	0.5434	0.5818	0.5030	44.0	gene-density (count+0.5)^3 weighted (cubic over-narrows)
+024_gene_density_sq_250kb	0.5084	0.5093	0.5467	0.5314	0.5093	0.5457	0.5931	0.0904	0.5314	0.5342	0.5457	0.5467	0.5855	0.5084	54.0	gene-density^2 with 250kb bins (finer-grained)
+025_gene_density_sq_100kb	0.5063	0.5073	0.5453	0.5289	0.5073	0.5432	0.5966	0.0918	0.5289	0.5346	0.5432	0.5453	0.5854	0.5063	38.0	gene-density^2 with 100kb bins (too fine)
+026_dhs_density_weighted	0.5067	0.5076	0.5453	0.5266	0.5076	0.5446	0.5990	0.0900	0.5266	0.5324	0.5446	0.5453	0.5919	0.5067	43.0	DHS-density^2 weighted (250kb bins) - similar to gene-density
+027_combined_density	0.5044	0.5053	0.5426	0.5311	0.5053	0.5417	0.5827	0.0858	0.5311	0.5292	0.5417	0.5426	0.5785	0.5044	86.0	z(gene)+z(cCRE) combined density^2 (over-narrows)
+028_gene_density_sq_500kb	0.5086	0.5096	0.5468	0.5295	0.5096	0.5457	0.5892	0.0862	0.5295	0.5349	0.5457	0.5468	0.5871	0.5086	54.0	gene-density^2 with 500kb bins (co-peak with 250kb; saturation)
+029_gene_density_sharper	0.5083	0.5093	0.5469	0.5308	0.5093	0.5457	0.5896	0.0869	0.5308	0.5355	0.5457	0.5469	0.5888	0.5083	53.0	gene-density^2 with 500kb bins, EPS=0.1 (sharper - saturated)
+030_gene_density_repeat_stack	0.5064	0.5074	0.5462	0.5287	0.5074	0.5438	0.5949	0.0865	0.5287	0.5293	0.5438	0.5462	0.5875	0.5064	73.0	gene-density^2 at 500kb + repeat-rich filter (stacking neutral-negative)

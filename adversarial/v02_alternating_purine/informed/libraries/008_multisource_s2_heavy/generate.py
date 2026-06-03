@@ -1,0 +1,225 @@
+"""008_multisource_s2_heavy — Table_S2-heavy multi-source variant of exp 007.
+
+Test whether tripling Table_S2 share recovers eval_07 (SEI) signal while
+preserving eval_06/11 K562 unlock.
+
+Design:
+- 5k cCRE uniform
+- 3k cCRE CTCF-only (preserve insulator/K562)
+- 3k cCRE DNase-H3K4me3 (preserve)
+- 15k Table_S2 UKBB+GTEx (3x exp 007's 5k)
+- 4k DHS-topic (eval_10 coverage)
+- 20k paired flanks (from cCRE+DHS positives)
+- Total = 50,000
+"""
+from __future__ import annotations
+
+import gzip
+import os
+import sys
+import time
+
+import numpy as np
+import pandas as pd
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
+sys.path.insert(0, ROOT)
+from data_utils import _fasta  # noqa: E402
+
+DATA = os.path.join(ROOT, 'data')
+WINDOW = 200
+HALF = WINDOW // 2
+SEED = 0
+FLANK_MIN = 1500
+FLANK_MAX = 3000
+EVAL_CHROMS_BARE = {'7', '13', '19', '21', 'X'}
+MPRA_PATH = '/data/users/arao/.private/mpra_exp/data/Table_S2__MPRA_dataset.txt'
+
+# Composition
+N_CCRE_UNI = 5_000
+N_CTCF = 3_000
+N_DNH3 = 3_000
+N_S2 = 15_000
+N_DHS = 4_000
+N_FLANK = 20_000
+TOTAL = N_CCRE_UNI + N_CTCF + N_DNH3 + N_S2 + N_DHS + N_FLANK
+assert TOTAL == 50_000, TOTAL
+
+
+def load_ccres():
+    df = pd.read_csv(os.path.join(DATA, 'GRCh38-cCREs.bed'), sep='\t',
+                     header=None,
+                     names=['chrom', 'start', 'end', 'rDHS', 'accession', 'classes'])
+    df['main_class'] = df['classes'].str.split(',').str[0]
+    df['center'] = ((df['start'] + df['end']) // 2).astype(int)
+    return df
+
+
+def build_overlap_lookup(df):
+    out = {}
+    for chrom, g in df.groupby('chrom', sort=False):
+        starts = g['start'].to_numpy()
+        ends = g['end'].to_numpy()
+        order = np.argsort(starts)
+        out[chrom] = (starts[order], ends[order])
+    return out
+
+
+def overlaps(chrom, ws, we, lookup):
+    if chrom not in lookup:
+        return False
+    starts, ends = lookup[chrom]
+    j = np.searchsorted(starts, we, side='left')
+    i = j - 1
+    while i >= 0 and starts[i] > ws - 5000:
+        if ends[i] > ws and starts[i] < we:
+            return True
+        i -= 1
+    return False
+
+
+def extract_centers(df, indices, fa, seen):
+    seqs, meta = [], []
+    for i in indices:
+        row = df.iloc[int(i)]
+        ws, we = row['center'] - HALF, row['center'] + HALF
+        try:
+            s = str(fa[row['chrom']][ws:we]).upper()
+        except Exception:
+            continue
+        if len(s) != WINDOW or 'N' in s or s in seen:
+            continue
+        seen.add(s); seqs.append(s); meta.append((row['chrom'], int(row['center'])))
+    return meta, seqs
+
+
+def sample_class(df, klass, n, seed, seen):
+    pool = df if klass is None else df[df['main_class'] == klass]
+    pool = pool.reset_index(drop=True)
+    rng = np.random.default_rng(seed)
+    fa = _fasta()
+    idx = rng.choice(len(pool), size=min(int(n * 1.4), len(pool)), replace=False)
+    meta, seqs = extract_centers(pool, idx, fa, seen)
+    return meta[:n], seqs[:n]
+
+
+def sample_table_s2(seed, seen, n):
+    df = pd.read_csv(MPRA_PATH, sep='\t', usecols=['chr', 'sequence'],
+                     dtype={'chr': 'string', 'sequence': 'string'})
+    df['chr'] = df['chr'].astype(str)
+    df = df[~df['chr'].isin(EVAL_CHROMS_BARE)]
+    df = df[df['sequence'].str.len() == 200]
+    df = df[~df['sequence'].str.contains('N', regex=False)]
+    df = df.drop_duplicates('sequence').reset_index(drop=True)
+    rng = np.random.default_rng(seed + 3)
+    idx = rng.choice(len(df), size=int(n * 1.3), replace=False)
+    out = []
+    for i in idx:
+        s = df.iloc[int(i)]['sequence'].upper()
+        if s in seen:
+            continue
+        seen.add(s)
+        out.append(s)
+        if len(out) >= n:
+            break
+    assert len(out) == n
+    return out
+
+
+def sample_dhs(seed, seen, n):
+    dhs = pd.read_csv(os.path.join(DATA, 'DHS_Index.txt.gz'), sep='\t',
+                      low_memory=False)
+    with gzip.open(os.path.join(DATA, 'DHS_NMF_Mixture.npy.gz')) as f:
+        nmf = np.load(f)
+    weights = nmf.sum(axis=0)
+    rng = np.random.default_rng(seed + 5)
+    nz = weights > 0; pool = np.flatnonzero(nz)
+    w = weights[nz]; w = w / w.sum()
+    fa = _fasta()
+    idx = rng.choice(pool, size=min(int(n * 1.5), pool.size), replace=False, p=w)
+    seqs, meta = [], []
+    s_col = list(dhs.columns).index('seqname')
+    sm_col = list(dhs.columns).index('summit')
+    for i in idx:
+        if len(seqs) >= n:
+            break
+        ch = dhs.iat[int(i), s_col]; su = int(dhs.iat[int(i), sm_col])
+        try:
+            s = str(fa[ch][su - HALF:su + HALF]).upper()
+        except Exception:
+            continue
+        if len(s) != WINDOW or 'N' in s or s in seen:
+            continue
+        seen.add(s); seqs.append(s); meta.append((ch, su))
+    assert len(seqs) == n
+    return meta, seqs
+
+
+def sample_flanks(positives, lookup, fa, seed, n, seen):
+    rng = np.random.default_rng(seed + 11)
+    out = []
+    idx = rng.permutation(len(positives))
+    pass_no = 0; t0 = time.time()
+    while len(out) < n and pass_no < 8:
+        pass_no += 1
+        for i in idx:
+            if len(out) >= n:
+                break
+            chrom, center = positives[int(i)]
+            for _ in range(4):
+                sign = 1 if rng.random() < 0.5 else -1
+                off = sign * int(rng.integers(FLANK_MIN, FLANK_MAX + 1))
+                c2 = center + off
+                ws, we = c2 - HALF, c2 + HALF
+                if ws < 0 or overlaps(chrom, ws, we, lookup):
+                    continue
+                try:
+                    s = str(fa[chrom][ws:we]).upper()
+                except Exception:
+                    continue
+                if len(s) != WINDOW or 'N' in s or s in seen:
+                    continue
+                seen.add(s); out.append(s); break
+        idx = rng.permutation(len(positives))
+    print(f'  flanks: {len(out):,}/{n} ({time.time()-t0:.1f}s)', flush=True)
+    if len(out) < n:
+        raise RuntimeError(f'only {len(out)}/{n} flanks')
+    return out
+
+
+def main():
+    t0 = time.time()
+    seen = set()
+    print('loading cCREs...', flush=True)
+    ccres = load_ccres()
+
+    print(f'cCRE uniform {N_CCRE_UNI}...', flush=True)
+    m_u, s_u = sample_class(ccres, None, N_CCRE_UNI, SEED, seen)
+    print(f'cCRE CTCF {N_CTCF}...', flush=True)
+    m_c, s_c = sample_class(ccres, 'CTCF-only', N_CTCF, SEED + 1, seen)
+    print(f'cCRE DNH3 {N_DNH3}...', flush=True)
+    m_d, s_d = sample_class(ccres, 'DNase-H3K4me3', N_DNH3, SEED + 2, seen)
+    print(f'Table_S2 {N_S2}...', flush=True)
+    s_s2 = sample_table_s2(SEED, seen, N_S2)
+    print(f'DHS-topic {N_DHS}...', flush=True)
+    m_dh, s_dh = sample_dhs(SEED, seen, N_DHS)
+
+    lookup = build_overlap_lookup(ccres)
+    fa = _fasta()
+    pos_for_flanks = m_u + m_c + m_d + m_dh
+    print(f'flanks {N_FLANK} from {len(pos_for_flanks)} positives...', flush=True)
+    s_f = sample_flanks(pos_for_flanks, lookup, fa, SEED, N_FLANK, seen)
+
+    all_seqs = s_u + s_c + s_d + s_s2 + s_dh + s_f
+    assert len(all_seqs) == 50_000
+    np.random.default_rng(SEED + 99).shuffle(all_seqs)
+
+    out = os.path.join(HERE, 'sequences_0.txt')
+    with open(out, 'w') as f:
+        f.write('\n'.join(all_seqs) + '\n')
+    print(f'wrote {out} in {time.time()-t0:.1f}s', flush=True)
+
+
+if __name__ == '__main__':
+    main()

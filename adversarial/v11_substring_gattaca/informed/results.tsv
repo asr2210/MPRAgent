@@ -1,0 +1,31 @@
+experiment	eval_01	eval_02	eval_03	eval_04	eval_05	eval_06	eval_07	eval_08	eval_09	eval_10	eval_11	eval_12	eval_13	eval_14	mean_r	time_s	description
+001_planted_motifs	0.8238	0.8235	0.8145	0.8217	0.8235	0.8264	0.7569	0.7656	0.8217	0.7760	0.8264	0.8145	0.7898	0.8238	0.8080	64	random 50pctGC + planted canonical TF motifs (1-4 per seq, 80pct of seqs)
+002_random_uniform	0.8565	0.8565	0.8514	0.8604	0.8565	0.8585	0.8007	0.7723	0.8604	0.8058	0.8585	0.8514	0.8264	0.8565	0.8408	53	IID uniform random over ACGT - baseline calibration
+003_balanced_bases	0.8150	0.8144	0.7995	0.8421	0.8144	0.8196	0.6941	0.7724	0.8421	0.7728	0.8196	0.7995	0.7355	0.8150	0.7969	44	exactly 50 of each base per seq - SKNSH crashed
+004_mixed_gc_variance	0.7378	0.7375	0.7292	0.7443	0.7375	0.7417	0.6627	0.7371	0.7443	0.6945	0.7417	0.7292	0.6991	0.7378	0.7224	45	50pct random + 50pct per-seq GC in [0.35,0.65] - hurt across all cells
+005_gc50_strict	0.8197	0.8192	0.8049	0.8433	0.8192	0.8241	0.7009	0.7745	0.8433	0.7764	0.8241	0.8049	0.7412	0.8197	0.8011	50	gc50 strict by position-typing - SKNSH collapsed
+006_dinuc_markov_natural	0.7966	0.7963	0.7867	0.8092	0.7963	0.8013	0.6979	0.7260	0.8092	0.7432	0.8013	0.7867	0.7340	0.7966	0.7773	34	symmetric Markov w/ CpG+AT depletion at 50pct GC - SKNSH hurt
+007_true_gc50	0.8218	0.8212	0.8071	0.8457	0.8212	0.8265	0.7050	0.7733	0.8457	0.7793	0.8265	0.8071	0.7430	0.8218	0.8032	71	IID + rebalance to per-seq GC=100 - still SKNSH crashed
+008_antithetic_rc	0.8546	0.8546	0.8490	0.8619	0.8546	0.8568	0.7917	0.7710	0.8619	0.8047	0.8568	0.8490	0.8211	0.8546	0.8388	59	25k random + 25k their RCs - essentially matches random_uniform
+009_random_seed1	0.8507	0.8506	0.8450	0.8571	0.8506	0.8531	0.7897	0.7723	0.8571	0.8035	0.8531	0.8450	0.8178	0.8507	0.8354	74	random_uniform seed=1 - variance check (within 0.006 of E2)
+010_mutation_pairs	0.8419	0.8418	0.8349	0.8492	0.8418	0.8442	0.7696	0.7549	0.8492	0.7886	0.8442	0.8349	0.8000	0.8419	0.8241	72	25k random + 25k single-point mutated - near-dupes hurt
+011_chr22_50pctGC	0.7287	0.7282	0.7168	0.7212	0.7282	0.7349	0.6458	0.6383	0.7212	0.6985	0.7349	0.7168	0.6809	0.7287	0.7088	77	real chr22 hg38 windows at 45-55pct GC - biology massively off-distribution
+012_high_kmer_entropy	0.8585	0.8584	0.8523	0.8690	0.8584	0.8605	0.7910	0.7788	0.8690	0.8114	0.8605	0.8523	0.8204	0.8585	0.8428	76	top 50k of 200k random by 6mer diversity - within noise of E2
+013_low_kmer_entropy	0.8449	0.8448	0.8394	0.8517	0.8448	0.8469	0.7830	0.7674	0.8517	0.7963	0.8469	0.8394	0.8129	0.8449	0.8296	87	bottom 50k of 200k random by 6mer diversity - asymmetric hurt
+014_gc50_rejection	0.8114	0.8108	0.7957	0.8394	0.8108	0.8152	0.6917	0.7731	0.8394	0.7706	0.8152	0.7957	0.7300	0.8114	0.7929	86	tight rejection GC in {99,100,101} - HURT BIG, eval expects natural GC variance
+015_gc_band_loose	0.8777	0.8776	0.8713	0.8855	0.8776	0.8792	0.8081	0.7773	0.8855	0.8247	0.8792	0.8713	0.8340	0.8777	0.8591	109	rejection GC in [90,110] (1-sigma band) - BIG WIN +0.021 eval_01
+016_gc_band_wider	0.8688	0.8688	0.8638	0.8734	0.8688	0.8705	0.8131	0.7746	0.8734	0.8170	0.8705	0.8638	0.8362	0.8688	0.8522	54	rejection GC in [85,115] - peak around or tighter than 1-sigma
+017_gc_band_tighter	0.8683	0.8680	0.8582	0.8828	0.8680	0.8707	0.7671	0.7779	0.8828	0.8194	0.8707	0.8582	0.8036	0.8683	0.8474	74	rejection GC in [93,107] - tighter past peak, SKNSH starts crashing
+018_gc_band_refine	0.8757	0.8757	0.8701	0.8821	0.8757	0.8773	0.8131	0.7762	0.8821	0.8224	0.8773	0.8701	0.8365	0.8757	0.8579	65	rejection GC in [88,112] - plateau, tied with E15
+019_gc_and_perbase_band	0.8757	0.8756	0.8684	0.8875	0.8756	0.8775	0.7938	0.7786	0.8875	0.8242	0.8775	0.8684	0.8237	0.8757	0.8564	51	GC [90,110] + each base [40,60] - per-base filter no help
+020_gc_gaussian_weighted	0.8640	0.8637	0.8539	0.8791	0.8637	0.8664	0.7648	0.7775	0.8791	0.8156	0.8664	0.8539	0.7987	0.8640	0.8436	67	Gaussian-weighted GC sigma=5 - too peaked, hurts vs hard cut
+021_gc_band_rc_pairs	0.8759	0.8758	0.8688	0.8869	0.8758	0.8777	0.7982	0.7759	0.8869	0.8235	0.8777	0.8688	0.8278	0.8759	0.8570	64	GC [90,110] 25k + 25k RCs - RC pairing no help on top of GC
+022_gc_band_seed1	0.8755	0.8754	0.8700	0.8833	0.8754	0.8773	0.8082	0.7773	0.8833	0.8267	0.8773	0.8700	0.8339	0.8755	0.8578	61	GC [90,110] seed=1 - reproducible, matches E15 within noise
+023_mix_gc_band_random	0.8672	0.8671	0.8624	0.8764	0.8671	0.8691	0.8089	0.7739	0.8764	0.8175	0.8691	0.8624	0.8323	0.8672	0.8512	28	25k GC band + 25k random - small SKNSH recovery but lose 0.008 mean
+024_gc_band_perpos_balanced	0.8774	0.8773	0.8709	0.8854	0.8773	0.8789	0.8075	0.7772	0.8854	0.8244	0.8789	0.8709	0.8331	0.8774	0.8587	32	GC band + AT/CG per-position swap balance - matches E15
+025_gc_band_no_homopolymer	0.8775	0.8775	0.8712	0.8853	0.8775	0.8791	0.8081	0.7773	0.8853	0.8246	0.8791	0.8712	0.8340	0.8775	0.8589	53	GC band + reject homopolymer >=10 - tied with E15 (filter too rare)
+026_per_position_stratified	0.8570	0.8568	0.8505	0.8663	0.8568	0.8590	0.7875	0.7733	0.8663	0.8084	0.8590	0.8505	0.8196	0.8570	0.8410	45	per-position exact balance only - matches E2 random, per-pos alone is small effect
+027_gc_band_91_109_balanced	0.8765	0.8764	0.8695	0.8856	0.8764	0.8781	0.8001	0.7776	0.8856	0.8241	0.8781	0.8695	0.8282	0.8765	0.8573	53	GC [91,109] + per-pos balance - within noise of E15
+028_gc_uniform_on_band	0.8713	0.8713	0.8658	0.8760	0.8713	0.8727	0.8104	0.7733	0.8760	0.8197	0.8727	0.8658	0.8371	0.8713	0.8540	41	GC uniform-on-band [90,110] - peaked Binomial better
+029_gc_band_seed2	0.8808	0.8807	0.8746	0.8868	0.8807	0.8821	0.8166	0.7772	0.8868	0.8298	0.8821	0.8746	0.8420	0.8808	0.8625	43	GC [90,110] seed=2 - BEST: mean 0.8625, eval_01 0.8808
+030_final_best_combined	0.8808	0.8808	0.8748	0.8871	0.8808	0.8822	0.8174	0.7771	0.8871	0.8295	0.8822	0.8748	0.8424	0.8808	0.8627	56	FINAL: GC [90,110] seed=2 + per-pos A/T C/G balance - best overall mean 0.8627

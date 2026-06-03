@@ -1,0 +1,31 @@
+experiment	eval_01	eval_02	eval_03	eval_04	eval_05	eval_06	eval_07	eval_08	eval_09	eval_10	eval_11	eval_12	eval_13	eval_14	time_s	description
+001_dhs_stratified_signal	0.3883	0.3882	0.3873	0.3923	0.3882	0.3891	0.3934	0.3240	0.3923	0.3990	0.3891	0.3873	0.3871	0.3883	26.6	NMF-stratified x signal-quartile DHS (Meuleman synthseqs 160k pool)
+002_dhs_numsamples_weighted	0.3901	0.3900	0.3889	0.3960	0.3900	0.3906	0.3944	0.3239	0.3960	0.4025	0.3906	0.3889	0.3906	0.3901	26.4	DHS synthseqs weighted by numsamples (toward constitutive elements)
+003_random_uniform_sanity	0.4203	0.4203	0.4169	0.4250	0.4203	0.4201	0.4226	0.3809	0.4250	0.4248	0.4201	0.4169	0.4210	0.4203	17.7	random uniform ACGT (sanity check vs synth_oracle)
+004_dhs_full_signal_weighted	0.3868	0.3867	0.3848	0.3920	0.3867	0.3878	0.3937	0.3236	0.3920	0.3980	0.3878	0.3848	0.3910	0.3868	17.4	Full DHS Index, mean_signal weighted, summit-centered from hg38
+005_dhs_gc_filtered	0.3876	0.3874	0.3867	0.3920	0.3874	0.3881	0.3919	0.3167	0.3920	0.3977	0.3881	0.3867	0.3875	0.3876	17.4	Full DHS GC-filtered 45-55pct
+006_motif_enriched_random	0.4252	0.4251	0.4227	0.4307	0.4251	0.4244	0.4282	0.3818	0.4307	0.4313	0.4244	0.4227	0.4248	0.4252	14.4	random uniform + 3 JASPAR motifs per seq
+007_motif_dense_gc50	0.4232	0.4230	0.4226	0.4310	0.4230	0.4239	0.4287	0.3784	0.4310	0.4316	0.4239	0.4226	0.4260	0.4232	30.6	gc_50 backbone + 6 JASPAR motifs/seq
+008_celltype_motifs	0.4283	0.4282	0.4247	0.4327	0.4282	0.4284	0.4314	0.3806	0.4327	0.4284	0.4284	0.4247	0.4295	0.4283	14.6	random uniform + 3 cell-type-targeted JASPAR motifs/seq (289 motif pool)
+009_celltype_motifs_5perseq	0.4259	0.4258	0.4243	0.4287	0.4258	0.4258	0.4338	0.3782	0.4287	0.4258	0.4258	0.4243	0.4287	0.4259	16.6	289-motif cell-type pool, 5 motifs/seq
+010_celltype_clustered	0.4217	0.4215	0.4206	0.4276	0.4215	0.4219	0.4296	0.3798	0.4276	0.4290	0.4219	0.4206	0.4271	0.4217	17.0	cell-type-clustered (K562/HepG2/SK-N-SH separate seqs + random)
+011_consensus_motifs	0.4169	0.4166	0.4158	0.4235	0.4166	0.4172	0.4233	0.3726	0.4235	0.4229	0.4172	0.4158	0.4200	0.4169	23	cell-type-targeted consensus motifs (argmax, no PFM stochasticity)
+012_same_tf_clustered	0.4196	0.4195	0.4173	0.4233	0.4195	0.4204	0.4231	0.3768	0.4233	0.4219	0.4204	0.4173	0.4189	0.4196	26	same-TF clustered (3 stochastic samples of one TF per seq)
+013_focused_pool	0.4220	0.4219	0.4181	0.4277	0.4219	0.4216	0.4256	0.3749	0.4277	0.4278	0.4216	0.4181	0.4235	0.4220	15	focused 142-PFM pool (canonical cell-type TFs + plant MYB pollution)
+014_clean_exact_pool	0.4184	0.4181	0.4176	0.4232	0.4181	0.4187	0.4285	0.3823	0.4232	0.4310	0.4187	0.4176	0.4252	0.4184	17	clean exact-match pool (176 PFMs, no plant TFs)
+015_variable_density	0.4220	0.4216	0.4213	0.4238	0.4216	0.4222	0.4249	0.3831	0.4238	0.4274	0.4222	0.4213	0.4267	0.4220	17	variable motif density 1-6/seq (289 pool)
+016_celltype_seed42	0.4222	0.4219	0.4218	0.4267	0.4219	0.4227	0.4314	0.3842	0.4267	0.4276	0.4227	0.4218	0.4228	0.4222	23	EXP 008 design with SEED=42 (noise floor estimate)
+017_weighted_full_pool	0.4195	0.4193	0.4177	0.4243	0.4193	0.4194	0.4280	0.3824	0.4243	0.4268	0.4194	0.4177	0.4239	0.4195	17	full JASPAR (2344) + 60pct cell-type weighted draws
+018_balanced_celltype	0.4223	0.4220	0.4205	0.4274	0.4220	0.4221	0.4296	0.3786	0.4274	0.4325	0.4221	0.4205	0.4276	0.4223	22	per-seq balanced (1 K562 + 1 HepG2 + 1 SK-N-SH motif)
+019_motif_pair_clusters	0.4198	0.4194	0.4164	0.4267	0.4194	0.4186	0.4252	0.3803	0.4267	0.4270	0.4186	0.4164	0.4232	0.4198	18	motif PAIR clusters at 5-20bp spacing (2 pairs/seq)
+020_dense_overlap	0.4284	0.4284	0.4270	0.4310	0.4284	0.4288	0.4336	0.3770	0.4310	0.4274	0.4288	0.4270	0.4321	0.4284	18	8 motifs/seq with OVERLAP allowed (overwriting)
+021_dense15_overlap	0.4193	0.4191	0.4184	0.4254	0.4191	0.4199	0.4254	0.3682	0.4254	0.4219	0.4199	0.4184	0.4218	0.4193	20	15 motifs/seq with overlap (too dense)
+022_dense10_overlap	0.4247	0.4244	0.4230	0.4285	0.4244	0.4249	0.4306	0.3706	0.4285	0.4249	0.4249	0.4230	0.4260	0.4247	16	10 motifs/seq with overlap (SK-N-SH peaks here)
+023_dense10_weighted	0.4249	0.4249	0.4217	0.4334	0.4249	0.4244	0.4300	0.3768	0.4334	0.4299	0.4244	0.4217	0.4264	0.4249	14	10 motifs/seq overlap + 60pct cell-type / 40pct full weighted
+024_hybrid_dense	0.4253	0.4252	0.4235	0.4308	0.4252	0.4259	0.4281	0.3728	0.4308	0.4241	0.4259	0.4235	0.4264	0.4253	14	25k @ 8 motifs + 25k @ 10 motifs hybrid library
+025_celltype_dense_clustered	0.4231	0.4228	0.4215	0.4300	0.4228	0.4231	0.4287	0.3731	0.4300	0.4240	0.4231	0.4215	0.4284	0.4231	26	per-cell-type dense (15k K562 + 15k HepG2 + 15k SK-N-SH @ 8 motifs each + 5k random)
+026_dinuc_backbone	0.4153	0.4149	0.4136	0.4177	0.4149	0.4147	0.4254	0.3595	0.4177	0.4220	0.4147	0.4136	0.4178	0.4153	35	mammalian dinuc backbone + 8 motifs overlap (SK-N-SH 0.062 highest!)
+027_mixed_backbone	0.4181	0.4180	0.4160	0.4202	0.4180	0.4182	0.4264	0.3707	0.4202	0.4223	0.4182	0.4160	0.4222	0.4181	30	25k random + 25k mammalian dinuc backbone, both with 8 motifs overlap (hedge fails)
+028_strong_pfms	0.4205	0.4204	0.4180	0.4233	0.4204	0.4203	0.4265	0.3705	0.4233	0.4214	0.4203	0.4180	0.4256	0.4205	22	top 30pct info-content PFMs only (86 from 289 pool), 8 motifs overlap
+029_diversity_selected	0.4288	0.4286	0.4272	0.4349	0.4286	0.4287	0.4358	0.3793	0.4349	0.4276	0.4287	0.4272	0.4312	0.4288	18	150k oversample (020+022+026 mix) greedy 6-mer diversity select 50k -- BREAKS PLATEAU
+030_diversity_select_v2	0.4269	0.4268	0.4251	0.4322	0.4268	0.4267	0.4333	0.3834	0.4322	0.4289	0.4267	0.4251	0.4310	0.4269	20	200k from 4 pools (add 008-style) -- pool D drift hurts SK-N-SH, below 029

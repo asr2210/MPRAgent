@@ -1,0 +1,31 @@
+experiment	eval_01	eval_02	eval_03	eval_04	eval_05	eval_06	eval_07	eval_08	eval_09	eval_10	eval_11	eval_12	eval_13	eval_14	time_s	description
+001_dhs_signal_specificity	0.5600	0.5606	0.5559	0.5235	0.5606	0.5570	0.6049	0.1414	0.5235	0.5182	0.5570	0.5559	0.5839	0.5600	16.4	DHS sampled w∝mean_signal/sqrt(numsamples) — over-weights noisy 1-sample peaks
+002_dhs_uniform_random	0.5627	0.5633	0.5569	0.5405	0.5633	0.5595	0.5974	0.1663	0.5405	0.5152	0.5595	0.5569	0.5771	0.5627	13.8	uniform random DHS — calibration vs dhs_random baseline
+003_dhs80_synth20	0.5273	0.5281	0.5187	0.5129	0.5281	0.5216	0.5411	0.2468	0.5129	0.4781	0.5216	0.5187	0.5214	0.5273	30.5	80% uniform DHS + 20% iid random synthetic
+004_dhs_quality_filtered	0.5127	0.5129	0.4969	0.5318	0.5129	0.5073	0.4917	0.2765	0.5318	0.4746	0.5073	0.4969	0.4771	0.5127	12.4	mean_signal>0.5 & numsamples>=3 — filters to ~1.2M elements
+005_dhs_component_stratified	0.5598	0.5604	0.5562	0.5187	0.5604	0.5567	0.6084	0.1309	0.5187	0.5180	0.5567	0.5562	0.5889	0.5598	12.4	equal 3125/component DHS — no improvement over uniform
+006_ccre_class_balanced	0.5637	0.5643	0.5548	0.5841	0.5643	0.5606	0.5707	0.2333	0.5841	0.4994	0.5606	0.5548	0.5473	0.5637	22.8	SCREEN cCRE balanced across 8 chromatin-mark classes - BEST so far
+007_ccre_uniform	0.5532	0.5537	0.5415	0.5780	0.5537	0.5489	0.5473	0.2426	0.5780	0.4934	0.5489	0.5415	0.5243	0.5532	32.3	uniform random cCRE (diagnostic for 006 class-balance effect)
+008_dhs_ccre_mix	0.5671	0.5677	0.5588	0.5723	0.5677	0.5636	0.5833	0.2111	0.5723	0.5080	0.5636	0.5588	0.5603	0.5671	21.1	25k DHS uniform + 25k cCRE class-balanced - NEW BEST
+009_ccre_active_only	0.4833	0.4835	0.4600	0.5879	0.4835	0.4778	0.3900	0.3879	0.5879	0.4025	0.4778	0.4600	0.3668	0.4833	22.4	cCRE PLS+pELS+CA-H3K4me3 only (active classes) — eval_01 collapse
+010_dhs_ccre_mix_rc_aug	0.5659	0.5665	0.5580	0.5674	0.5665	0.5625	0.5852	0.2083	0.5674	0.5091	0.5625	0.5580	0.5621	0.5659	54.0	25k unique x 2 strands (008 design + RC aug) - ties 008
+011_celltype_targeted_mix	0.5688	0.5694	0.5629	0.5579	0.5694	0.5659	0.5989	0.1813	0.5579	0.5137	0.5659	0.5629	0.5769	0.5688	29.0	DHS components weighted for HepG2/SK-N-SH + 25k cCRE class-bal — SK-N-SH +0.010 but K562 untouchable
+012_ccre_heavy_mix	0.5678	0.5683	0.5593	0.5772	0.5683	0.5644	0.5828	0.2169	0.5772	0.5071	0.5644	0.5593	0.5589	0.5678	49.0	15k DHS + 35k cCRE class-bal (cCRE-heavy) — eval_04/09 lift, eval_01 tie
+013_mutation_augmented	0.5624	0.5631	0.5536	0.5676	0.5631	0.5589	0.5777	0.2161	0.5676	0.5052	0.5589	0.5536	0.5538	0.5624	22.0	25k unique + 25k +5SNP mutated — slightly worse than 008, augmentation confirmed dead
+014_ccre_heavy_ct_dhs	0.5664	0.5669	0.5589	0.5677	0.5669	0.5634	0.5881	0.2008	0.5677	0.5087	0.5634	0.5589	0.5647	0.5664	26.0	35k cCRE + 15k CT-DHS mosaic — partial credit each direction, no eval_01 lift
+015_dhs_non_ccre	0.5736	0.5743	0.5700	0.5535	0.5743	0.5713	0.6131	0.1492	0.5535	0.5193	0.5713	0.5700	0.5924	0.5736	24.0	DHS NOT overlapping cCRE (orthogonal) + cCRE class-bal — NEW BEST 0.5736
+016_orth_dhs_heavy	0.5689	0.5696	0.5684	0.5279	0.5696	0.5672	0.6250	0.0972	0.5279	0.5205	0.5672	0.5684	0.6058	0.5689	23.0	35k orth-DHS + 15k cCRE — eval_07/13 best but eval_01 drops
+017_orth_dhs_ct_targeted	0.5696	0.5702	0.5685	0.5271	0.5702	0.5678	0.6246	0.0942	0.5271	0.5214	0.5678	0.5685	0.6058	0.5696	20.0	orth-DHS component-targeted + cCRE — stacking priors fails for eval_01
+018_orth_dhs_light_ccre_heavy	0.5734	0.5740	0.5681	0.5672	0.5740	0.5709	0.6036	0.1787	0.5672	0.5160	0.5709	0.5681	0.5814	0.5734	31.0	15 orth-DHS + 35 cCRE — ties 015, ratio robust 15-25k orth
+019_orth_dhs_pure_50k	0.5205	0.5216	0.5312	0.4278	0.5216	0.5191	0.6267	-0.0407	0.4278	0.4829	0.5191	0.5312	0.6099	0.5205	28.0	pure 50k orth-DHS — eval_01 crashes -0.042; orth-DHS needs cCRE
+020_orth_dhs_lownsamp	0.5745	0.5753	0.5713	0.5509	0.5753	0.5723	0.6168	0.1404	0.5509	0.5201	0.5723	0.5713	0.5968	0.5745	28.0	orth-DHS numsamples<=5 + cCRE class-bal — NEW BEST 0.5745 (+0.0009)
+021_orth_plus_cpg_recovery	0.5746	0.5752	0.5692	0.5711	0.5752	0.5722	0.6026	0.1836	0.5711	0.5158	0.5722	0.5692	0.5813	0.5746	24.0	22k orth-DHS + 22k cCRE + 6k PLS-pELS — eval_01 ties best, eval_08 recovers, mean_r +0.003
+022_orth_cpg_pushed	0.5710	0.5716	0.5633	0.5776	0.5716	0.5678	0.5888	0.2167	0.5776	0.5085	0.5678	0.5633	0.5669	0.5710	24.0	20k orth + 20k cCRE + 10k CpG — too much CpG hurts eval_01
+023_orth_rebalanced_ccre	0.5755	0.5762	0.5725	0.5528	0.5762	0.5733	0.6183	0.1402	0.5528	0.5199	0.5733	0.5725	0.5981	0.5755	25.0	orth-DHS + cCRE no-dELS — NEW BEST eval_01 0.5755 (+0.0010)
+025_orth_drop_dels_ca	0.5762	0.5769	0.5722	0.5620	0.5769	0.5739	0.6131	0.1591	0.5620	0.5187	0.5739	0.5722	0.5925	0.5762	26.0	orth-DHS + cCRE no-dELS no-CA — NEW BEST eval_01 0.5762 (+0.0007)
+024_combo_nodels_cpg	0.5745	0.5752	0.5691	0.5710	0.5752	0.5721	0.6027	0.1840	0.5710	0.5146	0.5721	0.5691	0.5814	0.5745	26.0	no-dELS + CpG slice (overshoots, worse than 023)
+026_orth_5class	0.5747	0.5753	0.5703	0.5662	0.5753	0.5725	0.6083	0.1717	0.5662	0.5157	0.5725	0.5703	0.5876	0.5747	31.0	orth-DHS + cCRE 5-class (no dELS/CA/CA-CTCF) — CA-CTCF removal hurt
+027_seed_stability	0.5758	0.5765	0.5719	0.5578	0.5765	0.5736	0.6158	0.1503	0.5578	0.5201	0.5736	0.5719	0.5943	0.5758	24.6	025 design with seed=1 — 0.5758 (−0.0004 vs 025), improvements real not seed noise
+028_orth_strict_nsamp	0.5755	0.5762	0.5724	0.5572	0.5762	0.5737	0.6165	0.1452	0.5572	0.5193	0.5737	0.5724	0.5956	0.5755	34.5	orth-DHS nsamp<=2 + 025 cCRE — slight loss vs 025, nsamp<=5 was optimal
+029_orth_dropdelsca_cpg	0.5740	0.5746	0.5698	0.5611	0.5746	0.5716	0.6109	0.1658	0.5611	0.5150	0.5716	0.5698	0.5904	0.5740	30.0	025 design + 3k CpG slice — eval_01 -0.0022 vs 025; CpG always net-negative
+030_orth_widewindow	0.5753	0.5760	0.5724	0.5564	0.5760	0.5735	0.6175	0.1419	0.5564	0.5196	0.5735	0.5724	0.5980	0.5753	23.0	025 design with W=350 orth window — eval_01 -0.0009; W=200 optimal

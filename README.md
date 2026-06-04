@@ -86,9 +86,20 @@ The 14 human-designed baselines span a range of compositional strategies, each e
 ```
 MPRAgent/
 ├── README.md                  # This file
-├── instructions.md            # Agent task prompt (given to Claude at start of each run)
 ├── prepare.py                 # Black-box evaluation harness (read-only for agents)
 ├── setup.sh                   # Clones boda2, downloads Malinois weights, builds eval pkl
+│
+├── instructions/              # Agent task prompts (all variants)
+│   ├── oneshot_blind.md       # One-shot, no baselines
+│   ├── oneshot_informed.md    # One-shot, with baseline results
+│   ├── long_horizon_blind.md  # 30-round, no baselines
+│   ├── long_horizon_informed.md # 30-round, with baseline results
+│   ├── strategies.md          # Human baseline results (given to informed agents)
+│   └── adversarial/           # Adversarial oracle instruction variants
+│       ├── blind.md           # MPRA framing, no baselines
+│       ├── informed.md        # MPRA framing, with baselines
+│       ├── unknown.md         # Black-box framing, no biology
+│       └── abstract.md        # {0,1,2,3} alphabet, no biology
 │
 ├── boda2/                     # Git submodule: CODA/Malinois architecture
 │
@@ -105,37 +116,44 @@ MPRAgent/
 │       ├── chr7_13_gt_labels_gt.tsv       # Ground-truth MPRA log2FC [K562, HepG2, SKNSH]
 │       └── ...                            # 8 additional named sets (gt + oracle variants)
 │
-├── agent_runs/                # All four agent run records
-│   ├── blind_1/               # Branch 42226_1 — Blind condition, run 1
-│   │   ├── results.tsv        # One row per experiment: eval_01..eval_14 + description
-│   │   ├── notebook.md        # Full append-only lab notebook
-│   │   ├── skills/            # Reusable skills the agent wrote during the run
-│   │   └── libraries/
-│   │       ├── 001_uniform_random/
-│   │       │   ├── generate.py     # Code that built this library
-│   │       │   ├── result.json     # prepare.py output (14 eval scores)
-│   │       │   └── notes.md        # Agent's post-experiment notes
-│   │       └── ...                 # 30 experiments total
-│   ├── blind_2/               # Branch 42526_1
-│   ├── informed_1/            # Branch 42326_1
-│   └── informed_2/            # Branch 42326_2
-│
 ├── baselines/                 # Human-designed baseline strategies (14 strategies × 7 sizes × 5 seeds)
 │   ├── run_baselines.py       # Dispatch script
 │   ├── run_one.py             # Single-seed worker
+│   ├── strategies.md          # Full results tables
 │   └── results/
 │       └── baselines.csv      # Full results table
 │
+├── results/                   # All agent run results from the paper
+│   ├── oneshot/               # One-shot runs (3 models × 2 conditions × 5 runs)
+│   │   ├── blind/
+│   │   │   ├── claude_1/      # notebook.md, generate.py, library/result.json, session.jsonl
+│   │   │   └── ...
+│   │   └── informed/
+│   │       └── ...
+│   ├── long_horizon/          # Long-horizon runs (Claude Opus 4.7, 30 rounds each)
+│   │   ├── blind_1/           # results.tsv, notebook.md, skills/, libraries/, session.jsonl
+│   │   ├── blind_2/
+│   │   ├── informed_1/
+│   │   └── informed_2/
+│   └── adversarial/           # Adversarial oracle runs (Claude, 4 conditions × 14 oracles)
+│       ├── v01_gc_balance/
+│       │   ├── blind/         # notebook.md, results.tsv, libraries/
+│       │   ├── informed/
+│       │   ├── unknown/
+│       │   └── abstract/
+│       └── ...
+│
+├── adversarial/               # Adversarial oracle benchmark (oracle code + baselines only)
+│   ├── eval/                  # Shared evaluation harness (Ridge regression on 6-mer features)
+│   ├── baselines/             # compute_strategies.py (generates 9 composition baselines)
+│   └── v01_gc_balance/        # Per-oracle directory
+│       ├── oracle.py          # Scoring function source code
+│       ├── prepare.py         # Sealed harness for this oracle
+│       └── strategies.md      # Baseline results for this oracle
+│
 └── analysis/                  # Code to reproduce all paper figures
-    ├── fig2_and_S1_baselines.ipynb    # Fig 2 (composition strip+heatmap) + Fig S1 (learning curves)
-    ├── fig3_and_fig4_agent.ipynb      # Fig 3 (agent strip+split) + Fig 4 (generalization)
-    └── data/                          # Pre-computed results for figure generation
-        ├── baselines_results.csv
-        ├── strategies.md
-        ├── 42226_1_blind_results.tsv
-        ├── 42526_1_blind_results.tsv
-        ├── 42326_1_informed_results.tsv
-        └── 42326_2_informed_results.tsv
+    ├── data/                  # Pre-computed results for figure generation
+    └── figures/
 ```
 
 ---
@@ -157,44 +175,47 @@ metrics = train_and_eval(sequences, labels, test_sets={'chr7_13': (seqs, labels)
 
 The surrogate trains from scratch so that generalixation must come entirely from the training sequences, not the architecture.
 
-## Running your own agent (sandbox)
+## Running your own agent
 
-To run your own agent in the same experimental framework used in the paper, copy the sandbox components into a fresh git repository and point an LLM agent at `instructions.md`. Prompt with "Read instructions.md and get started."
+To run your own agent in the same experimental framework used in the paper, clone the repo, run setup, choose an instruction variant, and point an LLM agent at it.
 
-### 1. Create a sandbox repo
-
-```bash
-mkdir my_mpra_agent_run
-cd my_mpra_agent_run
-git init
-
-cp -r /path/to/MPRAgent/eval      ./
-cp -r /path/to/MPRAgent/data      ./
-cp    /path/to/MPRAgent/prepare.py ./
-cp    /path/to/MPRAgent/setup.sh   ./
-cp    /path/to/MPRAgent/instructions.md ./
-```
-
-### 2. Run setup
+### 1. Clone and set up
 
 ```bash
-bash setup.sh
-```
+git clone --recurse-submodules git@github.com:asr2210/MPRAgent.git
+cd MPRAgent
 
-`setup.sh` does four things:
-1. Clones the `boda2` repository into `boda2/`
-2. Downloads the pretrained Malinois weights (~700 MB) from the public GCS bucket
-3. Converts the plain-text eval set files in `data/eval_sets/` to `data/eval_sets.pkl`
-4. Runs a sanity check
-
-Requires: Python 3.12, PyTorch 2.7, and `curl`, `wget`, or `gsutil` for the checkpoint download.
-
-```bash
 python3.12 -m venv venv
 source venv/bin/activate
 pip install torch --index-url https://download.pytorch.org/whl/cu128
 pip install numpy scipy pandas matplotlib lightning
 bash setup.sh
+```
+
+`setup.sh` clones the `boda2` repository, downloads the pretrained Malinois weights (~700 MB), converts eval set files to `data/eval_sets.pkl`, and runs a sanity check.
+
+### 2. Choose an instruction variant
+
+Copy the desired instructions into the working directory:
+
+```bash
+# Long-horizon, blind (30 rounds, no baselines — default):
+cp instructions/long_horizon_blind.md instructions.md
+
+# Long-horizon, informed (30 rounds, with human baseline results):
+cp instructions/long_horizon_informed.md instructions.md
+
+# One-shot, blind (single library, no feedback):
+cp instructions/oneshot_blind.md instructions.md
+
+# One-shot, informed (single library, with baselines):
+cp instructions/oneshot_informed.md instructions.md
+```
+
+For adversarial oracles, work from the oracle's directory:
+```bash
+cd adversarial/v07_game_of_life
+cp ../../instructions/adversarial/blind.md instructions.md
 ```
 
 ### 3. Point your agent at the task
@@ -203,7 +224,7 @@ Tell your agent: **"Read `instructions.md` and get started."**
 
 The agent will:
 - Create `libraries/NNN_description/` for each experiment
-- Write `generate.py` (produces 50,000 × 200bp sequences with seeds 0, 1, 2)
+- Write `generate.py` (produces 50,000 × 200bp sequences)
 - Run `python prepare.py libraries/NNN_description/` to evaluate
 - Append results to `results.tsv` and `notebook.md`
 - Commit after each experiment

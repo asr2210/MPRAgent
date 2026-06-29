@@ -1,378 +1,286 @@
 #!/usr/bin/env python3
-"""Generate a deterministic 50k x 200 bp MPRA training library."""
-
 from __future__ import annotations
 
-import gzip
-import hashlib
-import math
-import os
 import random
-import struct
-from collections import defaultdict
 from pathlib import Path
 
-import numpy as np
+from pyfaidx import Fasta
 
 
 ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "data"
 OUT = ROOT / "library" / "sequences.txt"
-N_TOTAL = 50_000
+SEED = 20260629
 LENGTH = 200
-SEED = 20260527
-CHROMS = {f"chr{i}" for i in range(1, 23)} | {"chrX", "chrY"}
-BASES = "ACGT"
-TWOBIT_BASES = "TCAG"
+TARGET = 50_000
+
+CANONICAL = [f"chr{i}" for i in range(1, 23)] + ["chrX", "chrY"]
+BED_FILES = {
+    "PLS": DATA / "GRCh38-cCREs.PLS.bed",
+    "pELS": DATA / "GRCh38-cCREs.pELS.bed",
+    "dELS": DATA / "GRCh38-cCREs.dELS.bed",
+    "CA-CTCF": DATA / "GRCh38-cCREs.CA-CTCF.bed",
+    "CA": DATA / "GRCh38-cCREs.CA.bed",
+}
+
+NATIVE_QUOTAS = {
+    "dELS": 15_000,
+    "pELS": 6_000,
+    "PLS": 5_000,
+    "CA-CTCF": 3_000,
+    "CA": 3_000,
+}
+
+JITTER_QUOTAS = {
+    "dELS": 2_500,
+    "pELS": 1_200,
+    "PLS": 800,
+    "CA-CTCF": 800,
+    "CA": 700,
+}
+
+BG_QUOTA = 4_000
+SHUFFLE_QUOTA = 4_000
+SYNTH_QUOTA = 4_000
 
 
-class TwoBitGenome:
-    def __init__(self, path: Path):
-        self.path = path
-        self.handle = path.open("rb")
-        sig = self.handle.read(4)
-        if sig == bytes.fromhex("1A412743"):
-            self.endian = ">"
-        elif sig == bytes.fromhex("4327411A"):
-            self.endian = "<"
-        else:
-            raise RuntimeError(f"{path} is not a 2bit file")
-        version, seq_count, _reserved = self._unpack("III", self.handle.read(12))
-        if version != 0:
-            raise RuntimeError(f"Unsupported 2bit version: {version}")
-        self.index: dict[str, int] = {}
-        for _ in range(seq_count):
-            name_len = self.handle.read(1)[0]
-            name = self.handle.read(name_len).decode()
-            (offset,) = self._unpack("I", self.handle.read(4))
-            self.index[name] = offset
-        self.records = {name: self._read_record(offset) for name, offset in self.index.items()}
+RC = str.maketrans("ACGT", "TGCA")
 
-    def _unpack(self, fmt: str, data: bytes):
-        return struct.unpack(self.endian + fmt, data)
+MOTIFS = {
+    "SP1": ["GGGCGG", "CCGCCC", "GGGCGGG"],
+    "AP1": ["TGACTCA", "TGAGTCA"],
+    "CREB": ["TGACGTCA"],
+    "EBOX": ["CACGTG", "CAGCTG", "CACCTG"],
+    "ETS": ["CCGGAAGT", "CAGGAAGT"],
+    "GATA": ["AGATAA", "TGATAA"],
+    "FOXA": ["TGTTTAC", "TRTTTAC".replace("R", "A")],
+    "HNF": ["AGGTCA", "GGGTCA"],
+    "NFY": ["CCAAT"],
+    "NFKB": ["GGGACTTTCC", "GGGAATTTCC"],
+    "IRF": ["GAAAGTGAA", "GAAACCGAA"],
+    "STAT": ["TTCCCGGAA", "TTCCTGGAA"],
+    "CTCF": ["CCGCGAGGGGGCAG", "CCGCGTGGCGGCAG"],
+    "SOX": ["CTTTGTT", "AACAAAG"],
+    "POU": ["ATGCAAAT"],
+    "MEF2": ["CTAAAAATAG", "CTATTTTTAG"],
+    "TATA": ["TATAAA"],
+    "RUNX": ["TGTGGT", "TGCGGT"],
+    "TEAD": ["CATTCCA", "GGAATGT"],
+    "SMAD": ["GTCTAGAC", "GTCT"],
+}
 
-    def _read_uint_array(self, count: int) -> list[int]:
-        if count == 0:
-            return []
-        data = self.handle.read(4 * count)
-        return list(self._unpack("I" * count, data))
-
-    def _read_record(self, offset: int) -> dict:
-        self.handle.seek(offset)
-        (dna_size,) = self._unpack("I", self.handle.read(4))
-        (n_count,) = self._unpack("I", self.handle.read(4))
-        n_starts = self._read_uint_array(n_count)
-        n_sizes = self._read_uint_array(n_count)
-        (mask_count,) = self._unpack("I", self.handle.read(4))
-        self.handle.seek(8 * mask_count, os.SEEK_CUR)
-        self.handle.seek(4, os.SEEK_CUR)
-        packed_offset = self.handle.tell()
-        return {
-            "size": dna_size,
-            "n_blocks": list(zip(n_starts, n_sizes)),
-            "packed_offset": packed_offset,
-        }
-
-    def chroms(self) -> dict[str, int]:
-        return {name: rec["size"] for name, rec in self.records.items()}
-
-    def sequence(self, chrom: str, start: int, end: int) -> str:
-        rec = self.records[chrom]
-        byte_start = start // 4
-        byte_end = (end + 3) // 4
-        self.handle.seek(rec["packed_offset"] + byte_start)
-        packed = self.handle.read(byte_end - byte_start)
-        decoded: list[str] = []
-        base_pos = byte_start * 4
-        for byte in packed:
-            for shift in (6, 4, 2, 0):
-                if start <= base_pos < end:
-                    decoded.append(TWOBIT_BASES[(byte >> shift) & 3])
-                base_pos += 1
-        seq = decoded[: end - start]
-        for n_start, n_size in rec["n_blocks"]:
-            n_end = n_start + n_size
-            if n_end <= start:
-                continue
-            if n_start >= end:
-                break
-            a = max(start, n_start) - start
-            b = min(end, n_end) - start
-            seq[a:b] = "N" * (b - a)
-        return "".join(seq)
+GRAMMARS = [
+    ("promoter_cpg", ["SP1", "SP1", "NFY", "ETS", "TATA"]),
+    ("housekeeping", ["SP1", "ETS", "EBOX", "CREB"]),
+    ("enhancer_signal", ["AP1", "ETS", "RUNX", "NFKB"]),
+    ("immune", ["NFKB", "IRF", "STAT", "AP1"]),
+    ("liver", ["HNF", "FOXA", "CEBP", "HNF"]),
+    ("neural", ["SOX", "POU", "EBOX", "MEF2"]),
+    ("insulator", ["CTCF", "CTCF", "SP1"]),
+    ("developmental", ["TEAD", "SMAD", "AP1", "SOX"]),
+    ("minimal", ["TATA", "SP1", "CREB"]),
+]
+MOTIFS["CEBP"] = ["TTGCGCAA", "ATTGCGCAAT"]
 
 
-def revcomp(seq: str) -> str:
-    return seq.translate(str.maketrans("ACGT", "TGCA"))[::-1]
+def load_intervals() -> dict[str, list[tuple[str, int, int]]]:
+    intervals: dict[str, list[tuple[str, int, int]]] = {}
+    canon = set(CANONICAL)
+    for label, path in BED_FILES.items():
+        rows: list[tuple[str, int, int]] = []
+        with path.open() as fh:
+            for line in fh:
+                if not line.strip() or line.startswith("#"):
+                    continue
+                chrom, start, end, *_ = line.rstrip("\n").split("\t")
+                if chrom not in canon:
+                    continue
+                rows.append((chrom, int(start), int(end)))
+        intervals[label] = rows
+    return intervals
 
 
-def stable_u01(text: str) -> float:
-    val = int.from_bytes(hashlib.blake2b(text.encode(), digest_size=8).digest(), "little")
-    return (val + 0.5) / 2**64
+def clean(seq: str) -> str:
+    return seq.upper()
 
 
-def read_dhs_rows(path: Path) -> list[dict]:
-    rows: list[dict] = []
-    with gzip.open(path, "rt") as handle:
-        header = handle.readline().strip().split("\t")
-        col = {name: i for i, name in enumerate(header)}
-        required = ["seqname", "start", "end", "identifier", "mean_signal", "numsamples", "summit", "component"]
-        missing = [name for name in required if name not in col]
-        if missing:
-            raise RuntimeError(f"DHS index missing columns: {missing}")
-        for line in handle:
-            parts = line.rstrip("\n").split("\t")
-            chrom = parts[col["seqname"]]
-            if chrom not in CHROMS:
-                continue
-            try:
-                rows.append(
-                    {
-                        "chrom": chrom,
-                        "start": int(parts[col["start"]]),
-                        "end": int(parts[col["end"]]),
-                        "summit": int(parts[col["summit"]]),
-                        "identifier": parts[col["identifier"]],
-                        "mean_signal": float(parts[col["mean_signal"]]),
-                        "numsamples": int(parts[col["numsamples"]]),
-                        "component": parts[col["component"]],
-                    }
-                )
-            except ValueError:
-                continue
-    return rows
+def passes(seq: str) -> bool:
+    if len(seq) != LENGTH:
+        return False
+    if any(c not in "ACGT" for c in seq):
+        return False
+    gc = (seq.count("G") + seq.count("C")) / len(seq)
+    if gc < 0.20 or gc > 0.82:
+        return False
+    for base in "ACGT":
+        if base * 18 in seq:
+            return False
+    return True
 
 
-def read_mixture(path: Path, n_rows: int) -> np.ndarray | None:
-    if not path.exists():
+def fetch(fa: Fasta, chrom: str, start: int, end: int, chrom_lens: dict[str, int]) -> str | None:
+    if start < 0 or end > chrom_lens[chrom] or end - start != LENGTH:
         return None
-    with gzip.open(path, "rb") as handle:
-        mix = np.load(handle)
-    if mix.shape[0] == 16 and mix.shape[1] == n_rows:
-        mix = mix.T
-    if mix.shape[0] != n_rows or mix.shape[1] != 16:
-        return None
-    return np.asarray(mix, dtype=np.float32)
+    seq = clean(str(fa[chrom][start:end]))
+    return seq if passes(seq) else None
 
 
-def weighted_without_replacement(rng: np.random.Generator, weights: np.ndarray, count: int) -> np.ndarray:
-    weights = np.asarray(weights, dtype=np.float64)
-    weights[~np.isfinite(weights)] = 0.0
-    weights = np.maximum(weights, 0.0)
-    if weights.sum() <= 0:
-        weights = np.ones_like(weights)
-    # Efraimidis-Spirakis keys avoid materializing a probability vector for
-    # repeated calls and give deterministic weighted sampling without replacement.
-    u = rng.random(len(weights))
-    keys = np.log(u) / weights
-    return np.argpartition(keys, -count)[-count:]
-
-
-def valid_window(tb: TwoBitGenome, chrom: str, center: int, offset: int = 0) -> str | None:
-    chrom_len = tb.chroms().get(chrom)
-    if chrom_len is None:
-        return None
-    mid = center + offset
-    start = mid - LENGTH // 2
-    end = start + LENGTH
-    if start < 0 or end > chrom_len:
-        return None
-    seq = tb.sequence(chrom, start, end).upper()
-    if len(seq) != LENGTH or any(base not in BASES for base in seq):
-        return None
+def ccre_window(
+    fa: Fasta,
+    interval: tuple[str, int, int],
+    chrom_lens: dict[str, int],
+    rng: random.Random,
+    jitter: bool,
+) -> str | None:
+    chrom, start, end = interval
+    center = (start + end) // 2
+    if jitter:
+        center += rng.randint(-180, 180)
+    left = center - LENGTH // 2
+    seq = fetch(fa, chrom, left, left + LENGTH, chrom_lens)
+    if seq and rng.random() < 0.5:
+        seq = seq.translate(RC)[::-1]
     return seq
 
 
-def add_dhs_sequences(
+def add_unique(seqs: list[str], seen: set[str], seq: str | None) -> bool:
+    if seq is None or seq in seen:
+        return False
+    seen.add(seq)
+    seqs.append(seq)
+    return True
+
+
+def fill_from_ccres(
     seqs: list[str],
     seen: set[str],
-    tb: TwoBitGenome,
-    rows: list[dict],
-    indices: list[int] | np.ndarray,
-    offsets: list[int],
-    quota: int,
+    fa: Fasta,
+    intervals: dict[str, list[tuple[str, int, int]]],
+    chrom_lens: dict[str, int],
+    quotas: dict[str, int],
+    rng: random.Random,
+    jitter: bool,
 ) -> None:
-    for idx in indices:
-        row = rows[int(idx)]
-        for offset in offsets:
-            seq = valid_window(tb, row["chrom"], row["summit"], offset)
-            if seq is None:
-                continue
-            # Canonicalize strand for uniqueness; orientation is not annotated
-            # for DHSs and this avoids spending capacity on reverse complements.
-            key = min(seq, revcomp(seq))
-            if key in seen:
-                continue
-            seen.add(key)
-            seqs.append(seq)
-            if len(seqs) >= quota:
-                return
+    for label, quota in quotas.items():
+        pool = intervals[label]
+        made = 0
+        attempts = 0
+        while made < quota:
+            attempts += 1
+            if attempts > quota * 100:
+                raise RuntimeError(f"too many failed attempts for {label}")
+            seq = ccre_window(fa, rng.choice(pool), chrom_lens, rng, jitter)
+            if add_unique(seqs, seen, seq):
+                made += 1
 
 
-def dinuc_shuffle(seq: str, rng: random.Random) -> str:
-    # Lightweight Markov-preserving shuffle: shuffle following bases within
-    # each predecessor bucket, preserving many local composition statistics.
-    trans: dict[str, list[str]] = {b: [] for b in BASES}
-    for a, b in zip(seq, seq[1:]):
-        trans[a].append(b)
-    for values in trans.values():
-        rng.shuffle(values)
-    current = seq[0]
-    out = [current]
-    for _ in range(len(seq) - 1):
-        if trans[current]:
-            current = trans[current].pop()
-        else:
-            current = rng.choice(BASES)
-        out.append(current)
-    return "".join(out)
+def random_genomic(
+    fa: Fasta,
+    chrom_lens: dict[str, int],
+    rng: random.Random,
+) -> str | None:
+    weights = [chrom_lens[c] for c in CANONICAL]
+    chrom = rng.choices(CANONICAL, weights=weights, k=1)[0]
+    start = rng.randint(0, chrom_lens[chrom] - LENGTH)
+    seq = fetch(fa, chrom, start, start + LENGTH, chrom_lens)
+    if seq and rng.random() < 0.5:
+        seq = seq.translate(RC)[::-1]
+    return seq
 
 
-IUPAC = {
-    "A": "A",
-    "C": "C",
-    "G": "G",
-    "T": "T",
-    "R": "AG",
-    "Y": "CT",
-    "S": "GC",
-    "W": "AT",
-    "K": "GT",
-    "M": "AC",
-    "B": "CGT",
-    "D": "AGT",
-    "H": "ACT",
-    "V": "ACG",
-    "N": "ACGT",
-}
+def shuffled(seq: str, rng: random.Random) -> str:
+    chars = list(seq)
+    rng.shuffle(chars)
+    return "".join(chars)
 
 
-MOTIFS = [
-    "TGASTCA",        # AP-1 / bZIP
-    "CACGTG",         # E-box
-    "GGGCGG",         # GC box
-    "GGAAGT",         # ETS-like
-    "CCAAT",          # NF-Y
-    "TATAWA",         # TATA-like
-    "WGATAR",         # GATA
-    "TRTTTAC",        # FOX-like
-    "AATGG",          # SOX-like core
-    "TGACCTTTG",      # nuclear receptor-like half-sites
-    "GCGCATGCGC",     # NRF1-like GC-rich core
-    "CCACCAGGGGGCGCTA",  # CTCF core fragment
-]
+def background(gc: float, rng: random.Random) -> list[str]:
+    p_gc = gc / 2
+    p_at = (1 - gc) / 2
+    alphabet = ["A", "C", "G", "T"]
+    weights = [p_at, p_gc, p_gc, p_at]
+    return rng.choices(alphabet, weights=weights, k=LENGTH)
 
 
-def instantiate_iupac(pattern: str, rng: random.Random) -> str:
-    return "".join(rng.choice(IUPAC[ch]) for ch in pattern)
+def place_motif(seq: list[str], motif: str, pos: int) -> None:
+    seq[pos : pos + len(motif)] = list(motif)
 
 
-def random_background(rng: random.Random, gc: float) -> str:
-    p_gc = gc / 2.0
-    weights = [0.5 - p_gc, p_gc, p_gc, 0.5 - p_gc]
-    return "".join(rng.choices(BASES, weights=weights, k=LENGTH))
+def synthetic(rng: random.Random) -> str:
+    name, families = rng.choice(GRAMMARS)
+    if name in {"promoter_cpg", "housekeeping", "minimal"}:
+        gc = rng.uniform(0.52, 0.72)
+    elif name == "insulator":
+        gc = rng.uniform(0.45, 0.65)
+    else:
+        gc = rng.uniform(0.34, 0.58)
+    seq = background(gc, rng)
 
+    if name in {"promoter_cpg", "minimal"} and rng.random() < 0.75:
+        place_motif(seq, "TATAAA", rng.randint(35, 70))
 
-def add_synthetic(seqs: list[str], seen: set[str], dhs_for_shuffle: list[str], quota: int) -> None:
-    rng = random.Random(SEED + 17)
-    while len(seqs) < quota and dhs_for_shuffle:
-        src = dhs_for_shuffle[rng.randrange(len(dhs_for_shuffle))]
-        seq = dinuc_shuffle(src, rng)
-        key = min(seq, revcomp(seq))
-        if key not in seen and all(base in BASES for base in seq):
-            seen.add(key)
-            seqs.append(seq)
+    cursor = rng.randint(12, 30)
+    for family in families:
+        motif = rng.choice(MOTIFS[family])
+        if rng.random() < 0.35:
+            motif = motif.translate(RC)[::-1]
+        if cursor + len(motif) >= LENGTH - 10:
+            cursor = rng.randint(10, 80)
+        pos = cursor + rng.randint(0, 18)
+        place_motif(seq, motif, pos)
+        cursor = pos + len(motif) + rng.choice([4, 6, 8, 10, 12, 16, 24, 32])
 
-    while len(seqs) < quota:
-        gc = min(0.75, max(0.25, rng.betavariate(5, 5)))
-        chars = list(random_background(rng, gc))
-        motif_count = rng.choice([1, 2, 2, 3, 4])
-        used: list[tuple[int, int]] = []
-        for _ in range(motif_count):
-            motif = instantiate_iupac(rng.choice(MOTIFS), rng)
-            if rng.random() < 0.5:
-                motif = revcomp(motif)
-            for _attempt in range(50):
-                pos = rng.randrange(8, LENGTH - len(motif) - 8)
-                span = (pos, pos + len(motif))
-                if all(span[1] <= a or span[0] >= b for a, b in used):
-                    chars[pos : pos + len(motif)] = motif
-                    used.append(span)
-                    break
-        seq = "".join(chars)
-        key = min(seq, revcomp(seq))
-        if key not in seen:
-            seen.add(key)
-            seqs.append(seq)
+    # Add controlled homotypic clusters in a minority of sequences.
+    if rng.random() < 0.35:
+        family = rng.choice(families)
+        motif = rng.choice(MOTIFS[family])
+        pos = rng.randint(95, 175 - len(motif))
+        for _ in range(rng.choice([2, 3])):
+            if pos + len(motif) < LENGTH:
+                place_motif(seq, motif, pos)
+            pos += len(motif) + rng.choice([5, 8, 13, 21])
+
+    return "".join(seq)
 
 
 def main() -> None:
-    dhs_path = DATA / "dhs_index_hg38.txt.gz"
-    mix_path = DATA / "dhs_mixture.npy.gz"
-    twobit_path = DATA / "hg38.2bit"
-    for path in [dhs_path, twobit_path]:
-        if not path.exists():
-            raise FileNotFoundError(path)
-
-    rows = read_dhs_rows(dhs_path)
-    if not rows:
-        raise RuntimeError("No DHS rows loaded")
-    mix = read_mixture(mix_path, len(rows))
-    tb = TwoBitGenome(twobit_path)
-    rng = np.random.default_rng(SEED)
-
-    signal = np.array([r["mean_signal"] for r in rows], dtype=np.float64)
-    breadth = np.array([r["numsamples"] for r in rows], dtype=np.float64)
-    base_weight = np.sqrt(np.maximum(signal, 0.001)) * np.log1p(breadth)
+    rng = random.Random(SEED)
+    fa = Fasta(str(DATA / "hg38.fa"), sequence_always_upper=True)
+    chrom_lens = {chrom: len(fa[chrom]) for chrom in CANONICAL}
+    intervals = load_intervals()
 
     seqs: list[str] = []
     seen: set[str] = set()
 
-    if mix is not None:
-        topic_strength = np.maximum(mix, 0).max(axis=1)
-        topic_total = np.maximum(mix, 0).sum(axis=1)
-        weights = base_weight * (1.0 + topic_strength + 0.25 * topic_total)
-        primary_idx = weighted_without_replacement(rng, weights, 39_000)
-        add_dhs_sequences(seqs, seen, tb, rows, primary_idx, [0], 37_500)
+    fill_from_ccres(seqs, seen, fa, intervals, chrom_lens, NATIVE_QUOTAS, rng, jitter=False)
+    fill_from_ccres(seqs, seen, fa, intervals, chrom_lens, JITTER_QUOTAS, rng, jitter=True)
 
-        for topic in range(16):
-            topic_w = np.maximum(mix[:, topic], 0) * np.sqrt(np.maximum(signal, 0.001))
-            idx = weighted_without_replacement(rng, topic_w, 900)
-            add_dhs_sequences(seqs, seen, tb, rows, idx, [0], 42_500)
-            if len(seqs) >= 42_500:
-                break
-    else:
-        weights = base_weight * (1.0 + np.array([stable_u01(r["component"]) for r in rows]))
-        primary_idx = weighted_without_replacement(rng, weights, 44_000)
-        add_dhs_sequences(seqs, seen, tb, rows, primary_idx, [0], 42_500)
+    made = 0
+    while made < BG_QUOTA:
+        if add_unique(seqs, seen, random_genomic(fa, chrom_lens, rng)):
+            made += 1
 
-    # Add nearby windows from high-confidence DHSs. These keep local genomic
-    # context but reduce overconcentration on exact summits.
-    flank_weights = base_weight * np.sqrt(breadth + 1.0)
-    flank_idx = weighted_without_replacement(rng, flank_weights, 12_000)
-    add_dhs_sequences(seqs, seen, tb, rows, flank_idx, [-75, 75, -125, 125], 47_000)
+    ccre_source = seqs[: sum(NATIVE_QUOTAS.values()) + sum(JITTER_QUOTAS.values())]
+    made = 0
+    while made < SHUFFLE_QUOTA:
+        candidate = shuffled(rng.choice(ccre_source), rng)
+        if passes(candidate) and add_unique(seqs, seen, candidate):
+            made += 1
 
-    # Component balancing backstop if any topics/components were under-sampled.
-    by_component: dict[str, list[int]] = defaultdict(list)
-    for i, row in enumerate(rows):
-        by_component[row["component"]].append(i)
-    for component in sorted(by_component, key=lambda c: stable_u01(c)):
-        idxs = by_component[component]
-        rng.shuffle(idxs)
-        add_dhs_sequences(seqs, seen, tb, rows, idxs[:500], [0], 48_000)
-        if len(seqs) >= 48_000:
-            break
+    made = 0
+    while made < SYNTH_QUOTA:
+        candidate = synthetic(rng)
+        if passes(candidate) and add_unique(seqs, seen, candidate):
+            made += 1
 
-    dhs_for_shuffle = seqs[:]
-    add_synthetic(seqs, seen, dhs_for_shuffle, N_TOTAL)
+    if len(seqs) != TARGET:
+        raise RuntimeError(f"expected {TARGET}, got {len(seqs)}")
 
-    if len(seqs) != N_TOTAL:
-        raise RuntimeError(f"Expected {N_TOTAL} sequences, got {len(seqs)}")
-    bad = [i for i, seq in enumerate(seqs) if len(seq) != LENGTH or any(base not in BASES for base in seq)]
-    if bad:
-        raise RuntimeError(f"Invalid sequences at indices {bad[:5]}")
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text("\n".join(seqs) + "\n")
+    OUT.parent.mkdir(exist_ok=True)
+    with OUT.open("w") as fh:
+        for seq in seqs:
+            fh.write(seq + "\n")
+
     print(f"wrote {len(seqs)} sequences to {OUT}")
 
 

@@ -1,335 +1,415 @@
 #!/usr/bin/env python3
-import gzip
-import os
+"""Generate a 50,000-sequence synthetic MPRA design library."""
+
+from __future__ import annotations
+
 import random
-from collections import defaultdict
-
-try:
-    from twobitreader import TwoBitFile
-except Exception:
-    TwoBitFile = None
+from pathlib import Path
 
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DATA = os.path.join(ROOT, "data")
-OUT = os.path.join(ROOT, "library", "sequences.txt")
-CCRE_BED = os.path.join(DATA, "GRCh38-cCREs-V4.bed.gz")
-HG38_2BIT = os.path.join(DATA, "hg38.2bit")
-SEED = 20260522
-LENGTH = 200
-TARGET = 50000
+SEED = 6128457
+N_SEQUENCES = 50_000
+SEQ_LEN = 200
+OUT = Path("library/sequences.txt")
 
 IUPAC = {
-    "A": "A", "C": "C", "G": "G", "T": "T",
-    "R": "AG", "Y": "CT", "S": "CG", "W": "AT", "K": "GT", "M": "AC",
-    "B": "CGT", "D": "AGT", "H": "ACT", "V": "ACG", "N": "ACGT",
+    "A": "A",
+    "C": "C",
+    "G": "G",
+    "T": "T",
+    "R": "AG",
+    "Y": "CT",
+    "S": "CG",
+    "W": "AT",
+    "K": "GT",
+    "M": "AC",
+    "B": "CGT",
+    "D": "AGT",
+    "H": "ACT",
+    "V": "ACG",
+    "N": "ACGT",
 }
 
-MOTIFS = {
-    "AP1": "TGASTCA",
-    "ETS": "CCGGAAGT",
-    "GATA": "WGATAR",
-    "FOX": "TRTTTRY",
-    "RUNX": "TGTGGT",
-    "NFKB": "GGGRNNYYCC",
-    "STAT": "TTCNNNGAA",
-    "IRF": "GAAA",
-    "ISRE": "GAAANNGAAA",
-    "SMAD": "GTCTAGAC",
-    "TEAD": "CATTCCA",
-    "SOX": "AACAAT",
-    "OCT": "ATGCAAAT",
-    "CREB": "TGACGTCA",
-    "CEBP": "TTGCNNAA",
-    "KLFSP": "GGGCGG",
-    "YY1": "CCATNTT",
-    "NFY": "CCAAT",
-    "EBOX": "CACGTG",
-    "MYCMAX": "CACGTG",
-    "HIF": "RCGTG",
-    "NR": "RGKTCA",
-    "ER": "GGTCANNNTGACC",
-    "GR": "AGAACANNNTGTTCT",
-    "HNF4": "RGGTCA",
-    "HNF1": "GTTAATNATTAAC",
-    "P53": "RRRCWWGYYY",
-    "MEF2": "YTAWWWWTAR",
-    "RFX": "GTNRCCNNRGYAAC",
-    "REST": "TTCAGCACCACGGACAG",
-    "CTCF": "CCASYAGRKGGCRS",
-    "TATA": "TATAWAWR",
-    "INR": "YYANWYY",
-}
+MOTIFS = [
+    ("SP1_GC", "GGGCGG", "ubiquitous"),
+    ("KLF", "CACCC", "ubiquitous"),
+    ("E2F", "TTTSSCGC", "cell_cycle"),
+    ("NRF1", "GCGCATGCGC", "metabolic"),
+    ("YY1", "CCATNTT", "architectural"),
+    ("CTCF_SHORT", "CCCTC", "architectural"),
+    ("CTCF_LONG", "CCASYAGGKGGCRS", "architectural"),
+    ("ETS", "GGAA", "signaling"),
+    ("ELK", "CCGGAAGT", "signaling"),
+    ("AP1", "TGASTCA", "signaling"),
+    ("CRE", "TGACGTCA", "signaling"),
+    ("ATF_HALF", "TGACG", "signaling"),
+    ("NFkB", "GGGRNNYYCC", "immune"),
+    ("IRF", "GAAANNGAAA", "immune"),
+    ("ISRE", "AGTTTCNNTTTCY", "immune"),
+    ("STAT", "TTCNNNGAA", "immune"),
+    ("NFKB_HALF", "GGGACT", "immune"),
+    ("EBOX_CANON", "CACGTG", "bhlh"),
+    ("EBOX_MYC", "CACGTG", "bhlh"),
+    ("EBOX_TWIST", "CAGCTG", "bhlh"),
+    ("EBOX_TAL", "CAGATG", "bhlh"),
+    ("GATA", "WGATAR", "lineage"),
+    ("TAL_GATA", "CAGATGG", "lineage"),
+    ("RUNX", "TGTGGT", "lineage"),
+    ("FOX", "TRTTKRY", "forkhead"),
+    ("HNF", "GTTAATNATTAAC", "nuclear_receptor"),
+    ("CEBP", "TTGCGCAA", "metabolic"),
+    ("HNF4", "RGGNCAAAGKTCAN", "nuclear_receptor"),
+    ("RXR_DR1", "AGGTCAAAGGTCA", "nuclear_receptor"),
+    ("ER_DR3", "AGGTCANNNTGACCT", "nuclear_receptor"),
+    ("GR", "GGTACANNNTGTTCT", "nuclear_receptor"),
+    ("PPAR", "AGGTCANAGGTCA", "nuclear_receptor"),
+    ("RORA", "AWWNTRGGTCA", "nuclear_receptor"),
+    ("SOX", "AACAAT", "development"),
+    ("OCT", "ATGCAAAT", "development"),
+    ("POU", "ATGCAAATNNNNTAAT", "development"),
+    ("NANOG", "TAATGG", "development"),
+    ("KLF4", "RGGYGYG", "development"),
+    ("ESRRB", "TCAAGGTCA", "development"),
+    ("TEAD", "CATTCCA", "development"),
+    ("SMAD", "CAGAC", "signaling"),
+    ("TCF_LEF", "CTTTGWW", "wnt"),
+    ("RBPJ", "TGGGAA", "notch"),
+    ("GLI", "GACCACCCA", "hedgehog"),
+    ("MEF2", "YTAWWWWTAR", "muscle"),
+    ("HAND", "NRTCTG", "development"),
+    ("TBX", "AGGTGTGA", "development"),
+    ("PAX", "GTCACGCWTSANTGA", "development"),
+    ("HOMEZ", "TAATTA", "homeobox"),
+    ("HOX", "TAATNN", "homeobox"),
+    ("PITX", "TAATCC", "homeobox"),
+    ("DLX", "TAATTG", "homeobox"),
+    ("NKX", "CAAGTG", "homeobox"),
+    ("PBX", "TGATTGAT", "homeobox"),
+    ("MEIS", "TGACAG", "homeobox"),
+    ("RFX", "GTNRCCNNRGYAAC", "architectural"),
+    ("NFI", "TTGGCNNNNNGCCAA", "architectural"),
+    ("P53", "RRRCWWGYYYNNRRRCWWGYYY", "stress"),
+    ("HIF", "RCGTG", "stress"),
+    ("XBP1", "CCACGTCATC", "stress"),
+    ("NFE2L2", "TGACTCAGCA", "stress"),
+    ("MAF", "TGCTGACTCAGCA", "stress"),
+    ("BACH", "TGCTGAGTCAGCA", "stress"),
+    ("TATA", "TATAWAAR", "core_promoter"),
+    ("INR", "YYANWYY", "core_promoter"),
+    ("CCAAT", "CCAAT", "core_promoter"),
+    ("BRE", "SSRCGCC", "core_promoter"),
+    ("DPE", "RGWYV", "core_promoter"),
+    ("POLYA_AATAAA", "AATAAA", "rna_processing"),
+]
 
-FAMILIES = {
-    "immune": ["NFKB", "IRF", "ISRE", "STAT", "AP1", "RUNX"],
-    "development": ["SOX", "OCT", "TEAD", "SMAD", "FOX", "GATA"],
-    "metabolic": ["HNF4", "HNF1", "CEBP", "NR", "GR", "FOX"],
-    "proliferation": ["ETS", "AP1", "MYCMAX", "EBOX", "CREB", "KLFSP"],
-    "neural": ["REST", "SOX", "MEF2", "RFX", "CREB", "FOX"],
-    "promoter": ["KLFSP", "NFY", "ETS", "YY1", "TATA", "INR"],
-    "boundary": ["CTCF", "YY1", "RFX", "KLFSP"],
-}
-
-CLASS_COUNTS = {
-    "dELS": 10000,
-    "pELS": 5000,
-    "PLS": 5000,
-    "CA": 5000,
-    "CA-CTCF": 4000,
-    "TF": 3000,
-    "CA-H3K4me3": 2500,
-    "CA-TF": 1500,
-}
+BY_CLASS = {}
+for motif in MOTIFS:
+    BY_CLASS.setdefault(motif[2], []).append(motif)
 
 
-def gc_random(rng, n, gc):
-    seq = []
-    for _ in range(n):
-        if rng.random() < gc:
-            seq.append("G" if rng.random() < 0.5 else "C")
-        else:
-            seq.append("A" if rng.random() < 0.5 else "T")
-    return "".join(seq)
+def expand_iupac(pattern: str, rng: random.Random) -> str:
+    return "".join(rng.choice(IUPAC[ch]) for ch in pattern)
 
 
-def revcomp(seq):
+def rc(seq: str) -> str:
     return seq.translate(str.maketrans("ACGT", "TGCA"))[::-1]
 
 
-def instantiate(consensus, rng):
-    return "".join(rng.choice(IUPAC.get(ch, "ACGT")) for ch in consensus.upper())
+def maybe_rc(seq: str, rng: random.Random) -> str:
+    return rc(seq) if rng.random() < 0.5 else seq
 
 
-def mutate(seq, rng, rate=0.18):
-    bases = "ACGT"
-    out = []
-    for ch in seq:
-        if rng.random() < rate:
-            out.append(rng.choice([b for b in bases if b != ch]))
-        else:
-            out.append(ch)
-    return "".join(out)
-
-
-def place(seq, insert, pos):
-    return seq[:pos] + insert + seq[pos + len(insert):]
-
-
-def valid(seq):
-    return len(seq) == LENGTH and set(seq) <= set("ACGT")
-
-
-def open_genome():
-    if TwoBitFile is None or not os.path.exists(HG38_2BIT):
-        return None
-    return TwoBitFile(HG38_2BIT)
-
-
-def chrom_sizes(genome):
-    sizes = {}
-    for chrom in genome.keys():
-        if chrom.startswith("chr") and "_" not in chrom and chrom not in {"chrM"}:
-            try:
-                sizes[chrom] = len(genome[chrom])
-            except Exception:
-                pass
-    return sizes
-
-
-def fetch_window(genome, chrom, center, rng, jitter=90):
-    if chrom not in genome:
-        return None
-    chrom_len = len(genome[chrom])
-    c = center + rng.randint(-jitter, jitter)
-    start = max(0, min(chrom_len - LENGTH, c - LENGTH // 2))
-    try:
-        seq = genome[chrom][start:start + LENGTH].upper()
-    except Exception:
-        return None
-    if valid(seq):
-        return seq
-    return None
-
-
-def load_ccres():
-    by_class = defaultdict(list)
-    if not os.path.exists(CCRE_BED):
-        return by_class
-    with gzip.open(CCRE_BED, "rt") as fh:
-        for line in fh:
-            if not line or line.startswith("#"):
-                continue
-            fields = line.rstrip("\n").split("\t")
-            if len(fields) < 6:
-                continue
-            chrom, start, end, cls = fields[0], int(fields[1]), int(fields[2]), fields[5]
-            if chrom.startswith("chr") and "_" not in chrom and chrom != "chrM":
-                by_class[cls].append((chrom, start, end))
-    return by_class
-
-
-def genomic_ccre_sequences(rng, genome, count):
-    by_class = load_ccres()
-    if not by_class or genome is None:
-        return []
-    seqs = []
-    for cls, n in CLASS_COUNTS.items():
-        pool = by_class.get(cls, [])
-        if not pool:
-            continue
-        tries = 0
-        while n > 0 and tries < n * 40:
-            tries += 1
-            chrom, start, end = rng.choice(pool)
-            seq = fetch_window(genome, chrom, (start + end) // 2, rng)
-            if seq:
-                if rng.random() < 0.5:
-                    seq = revcomp(seq)
-                seqs.append(seq)
-                n -= 1
-    rng.shuffle(seqs)
-    return seqs[:count]
-
-
-def random_genomic_sequences(rng, genome, count):
-    if genome is None:
-        return []
-    sizes = chrom_sizes(genome)
-    chroms = list(sizes)
-    weights = [sizes[c] for c in chroms]
-    seqs = []
-    tries = 0
-    while len(seqs) < count and tries < count * 100:
-        tries += 1
-        chrom = rng.choices(chroms, weights=weights, k=1)[0]
-        start = rng.randint(0, sizes[chrom] - LENGTH)
-        seq = genome[chrom][start:start + LENGTH].upper()
-        if valid(seq):
-            if rng.random() < 0.5:
-                seq = revcomp(seq)
-            seqs.append(seq)
-    return seqs
-
-
-def synthetic_enhancer(rng, idx):
-    gc = rng.choice([0.32, 0.38, 0.45, 0.52, 0.60, 0.68])
-    seq = gc_random(rng, LENGTH, gc)
-    family = rng.choice(list(FAMILIES))
-    motifs = list(FAMILIES[family])
-    rng.shuffle(motifs)
-    copies = rng.randint(2, 7)
-    occupied = []
-    for i in range(copies):
-        name = motifs[i % len(motifs)] if rng.random() < 0.7 else rng.choice(list(MOTIFS))
-        motif = instantiate(MOTIFS[name], rng)
-        if rng.random() < 0.5:
-            motif = revcomp(motif)
-        if idx % 11 == 0:
-            motif = mutate(motif, rng, 0.22)
-        for _ in range(80):
-            pos = rng.randint(8, LENGTH - len(motif) - 8)
-            if all(abs(pos - old) > 5 for old in occupied):
-                seq = place(seq, motif, pos)
-                occupied.append(pos)
+def random_bg(rng: random.Random, gc: float | None = None, length: int = SEQ_LEN) -> str:
+    if gc is None:
+        gc = rng.choice([0.24, 0.30, 0.36, 0.42, 0.50, 0.58, 0.66, 0.74])
+    probs = [("A", (1 - gc) / 2), ("C", gc / 2), ("G", gc / 2), ("T", (1 - gc) / 2)]
+    bases = []
+    run_base = ""
+    run_len = 0
+    for _ in range(length):
+        x = rng.random()
+        acc = 0.0
+        base = "T"
+        for b, p in probs:
+            acc += p
+            if x <= acc:
+                base = b
                 break
-    return seq
-
-
-def synthetic_promoter(rng, idx):
-    gc = rng.choice([0.48, 0.56, 0.64, 0.72])
-    seq = gc_random(rng, LENGTH, gc)
-    if rng.random() < 0.75:
-        tata = instantiate(MOTIFS["TATA"], rng)
-        seq = place(seq, tata, rng.randint(60, 85))
-    inr = instantiate(MOTIFS["INR"], rng)
-    seq = place(seq, inr, rng.randint(92, 103))
-    for name in rng.sample(["KLFSP", "NFY", "ETS", "YY1", "CREB", "EBOX"], rng.randint(2, 5)):
-        motif = instantiate(MOTIFS[name], rng)
-        if rng.random() < 0.35:
-            motif = revcomp(motif)
-        pos = rng.choice([rng.randint(10, 55), rng.randint(120, 185 - len(motif))])
-        if idx % 13 == 0:
-            motif = mutate(motif, rng, 0.18)
-        seq = place(seq, motif, pos)
-    return seq
-
-
-def synthetic_ctcf(rng, idx):
-    seq = gc_random(rng, LENGTH, rng.choice([0.38, 0.45, 0.52, 0.60]))
-    motif = instantiate(MOTIFS["CTCF"], rng)
-    if rng.random() < 0.5:
-        motif = revcomp(motif)
-    if idx % 7 == 0:
-        motif = mutate(motif, rng, 0.20)
-    seq = place(seq, motif, rng.randint(75, 110))
-    for name in rng.sample(["YY1", "RFX", "KLFSP", "ETS"], rng.randint(0, 2)):
-        m = instantiate(MOTIFS[name], rng)
-        if rng.random() < 0.5:
-            m = revcomp(m)
-        seq = place(seq, m, rng.choice([rng.randint(10, 55), rng.randint(135, 185 - len(m))]))
-    return seq
-
-
-def synthetic_background(rng, idx):
-    seq = gc_random(rng, LENGTH, rng.choice([0.25, 0.32, 0.40, 0.50, 0.60, 0.70]))
-    if idx % 3 == 0:
-        tract = rng.choice(["A", "T", "C", "G"]) * rng.randint(6, 14)
-        seq = place(seq, tract, rng.randint(0, LENGTH - len(tract)))
-    if idx % 5 == 0:
-        motif = mutate(instantiate(MOTIFS[rng.choice(list(MOTIFS))], rng), rng, 0.35)
-        seq = place(seq, motif, rng.randint(0, LENGTH - len(motif)))
-    return seq
-
-
-def synthetic_sequences(rng, count):
-    seqs = []
-    for i in range(count):
-        bucket = i % 8
-        if bucket in {0, 1, 2, 3}:
-            seq = synthetic_enhancer(rng, i)
-        elif bucket in {4, 5}:
-            seq = synthetic_promoter(rng, i)
-        elif bucket == 6:
-            seq = synthetic_ctcf(rng, i)
+        if base == run_base:
+            run_len += 1
+            if run_len >= 5:
+                base = rng.choice([b for b in "ACGT" if b != run_base])
+                run_base = base
+                run_len = 1
         else:
-            seq = synthetic_background(rng, i)
-        seqs.append(seq)
-    return seqs
+            run_base = base
+            run_len = 1
+        bases.append(base)
+    return "".join(bases)
 
 
-def dedupe_fill(seqs, rng):
-    seen = set()
-    out = []
-    for seq in seqs:
-        if valid(seq) and seq not in seen:
-            out.append(seq)
-            seen.add(seq)
-    while len(out) < TARGET:
-        seq = synthetic_enhancer(rng, len(out))
-        if seq not in seen:
-            out.append(seq)
-            seen.add(seq)
-    return out[:TARGET]
+def markov_bg(rng: random.Random, gc: float | None = None) -> str:
+    if gc is None:
+        gc = rng.uniform(0.28, 0.72)
+    seq = [rng.choice("ACGT")]
+    for _ in range(SEQ_LEN - 1):
+        prev = seq[-1]
+        if rng.random() < 0.08:
+            choices = "CG" if prev in "CG" else "AT"
+            seq.append(rng.choice(choices))
+        elif prev == "C" and rng.random() < 0.12:
+            seq.append("G")
+        else:
+            seq.append(random_bg(rng, gc, 1))
+    return "".join(seq)
 
 
-def main():
+def insert(seq: str, motif: str, pos: int) -> str:
+    return seq[:pos] + motif + seq[pos + len(motif):]
+
+
+def nonoverlap_positions(rng: random.Random, lengths: list[int], min_gap: int = 2) -> list[int]:
+    for _ in range(200):
+        positions = []
+        occupied = []
+        ok = True
+        for length in lengths:
+            pos = rng.randrange(4, SEQ_LEN - length - 4)
+            if any(not (pos + length + min_gap <= s or pos >= e + min_gap) for s, e in occupied):
+                ok = False
+                break
+            positions.append(pos)
+            occupied.append((pos, pos + length))
+        if ok:
+            return positions
+    cursor = 8
+    positions = []
+    for length in lengths:
+        positions.append(cursor)
+        cursor += length + min_gap + 4
+    return positions
+
+
+def shuffle_seq(seq: str, rng: random.Random) -> str:
+    chars = list(seq)
+    rng.shuffle(chars)
+    return "".join(chars)
+
+
+def mutate(seq: str, rng: random.Random, n: int = 2) -> str:
+    chars = list(seq)
+    for pos in rng.sample(range(len(chars)), min(n, len(chars))):
+        chars[pos] = rng.choice([b for b in "ACGT" if b != chars[pos]])
+    return "".join(chars)
+
+
+def sample_motif(rng: random.Random, classes: list[str] | None = None) -> tuple[str, str, str]:
+    pool = [m for c in classes for m in BY_CLASS[c]] if classes else MOTIFS
+    return rng.choice(pool)
+
+
+def place_motifs(
+    rng: random.Random,
+    motifs: list[tuple[str, str, str]],
+    gc: float | None = None,
+    positions: list[int] | None = None,
+    background: str | None = None,
+) -> str:
+    seq = background or (markov_bg(rng, gc) if rng.random() < 0.35 else random_bg(rng, gc))
+    concrete = [maybe_rc(expand_iupac(m[1], rng), rng) for m in motifs]
+    if positions is None:
+        positions = nonoverlap_positions(rng, [len(m) for m in concrete], rng.choice([1, 2, 4, 8, 12]))
+    for motif, pos in sorted(zip(concrete, positions), key=lambda x: x[1]):
+        seq = insert(seq, motif, pos)
+    return seq
+
+
+def add_unique(seqs: list[str], seen: set[str], seq: str) -> bool:
+    if len(seq) != SEQ_LEN or any(c not in "ACGT" for c in seq) or seq in seen:
+        return False
+    seen.add(seq)
+    seqs.append(seq)
+    return True
+
+
+def fill(seqs: list[str], seen: set[str], target_add: int, maker) -> None:
+    target = len(seqs) + target_add
+    attempts = 0
+    while len(seqs) < target:
+        if add_unique(seqs, seen, maker()):
+            continue
+        attempts += 1
+        if attempts > target_add * 50:
+            raise RuntimeError("too many duplicate/invalid generation attempts")
+
+
+def make_backgrounds(rng: random.Random, seqs: list[str], seen: set[str], n: int) -> None:
+    def maker() -> str:
+        if rng.random() < 0.55:
+            return random_bg(rng)
+        if rng.random() < 0.85:
+            return markov_bg(rng)
+        base = random_bg(rng, rng.uniform(0.22, 0.78))
+        return shuffle_seq(base, rng)
+
+    fill(seqs, seen, n, maker)
+
+
+def make_singletons(rng: random.Random, seqs: list[str], seen: set[str], n: int) -> None:
+    def maker() -> str:
+        motif = sample_motif(rng)
+        gc = rng.choice([0.30, 0.38, 0.46, 0.54, 0.62, 0.70])
+        concrete = maybe_rc(expand_iupac(motif[1], rng), rng)
+        pos = rng.randrange(8, SEQ_LEN - len(concrete) - 8)
+        return place_motifs(rng, [motif], gc=gc, positions=[pos])
+
+    fill(seqs, seen, n, maker)
+
+
+def make_pairs(rng: random.Random, seqs: list[str], seen: set[str], n: int) -> None:
+    favored_pairs = [
+        (["ubiquitous"], ["signaling"]),
+        (["bhlh"], ["lineage"]),
+        (["forkhead"], ["nuclear_receptor"]),
+        (["immune"], ["signaling"]),
+        (["homeobox"], ["development"]),
+        (["architectural"], ["ubiquitous"]),
+        (["core_promoter"], ["ubiquitous"]),
+        (["stress"], ["signaling"]),
+    ]
+
+    def maker() -> str:
+        c1, c2 = rng.choice(favored_pairs)
+        m1 = sample_motif(rng, c1)
+        m2 = sample_motif(rng, c2)
+        s1 = maybe_rc(expand_iupac(m1[1], rng), rng)
+        s2 = maybe_rc(expand_iupac(m2[1], rng), rng)
+        spacing = rng.choice([0, 2, 4, 6, 8, 12, 16, 24, 32, 48, 64])
+        total = len(s1) + spacing + len(s2)
+        start = rng.randrange(6, SEQ_LEN - total - 6)
+        if rng.random() < 0.5:
+            motifs = [(m1[0], s1, m1[2]), (m2[0], s2, m2[2])]
+        else:
+            motifs = [(m2[0], s2, m2[2]), (m1[0], s1, m1[2])]
+        bg = markov_bg(rng, rng.uniform(0.30, 0.70))
+        bg = insert(bg, motifs[0][1], start)
+        bg = insert(bg, motifs[1][1], start + len(motifs[0][1]) + spacing)
+        return bg
+
+    fill(seqs, seen, n, maker)
+
+
+def make_triples(rng: random.Random, seqs: list[str], seen: set[str], n: int) -> None:
+    class_sets = [
+        ["ubiquitous", "signaling", "bhlh"],
+        ["immune", "signaling", "ubiquitous"],
+        ["development", "homeobox", "forkhead"],
+        ["nuclear_receptor", "forkhead", "metabolic"],
+        ["lineage", "bhlh", "architectural"],
+        ["stress", "signaling", "ubiquitous"],
+    ]
+
+    def maker() -> str:
+        classes = rng.choice(class_sets)
+        motifs = [sample_motif(rng, [c]) for c in classes]
+        rng.shuffle(motifs)
+        return place_motifs(rng, motifs, gc=rng.uniform(0.30, 0.70))
+
+    fill(seqs, seen, n, maker)
+
+
+def make_homotypic(rng: random.Random, seqs: list[str], seen: set[str], n: int) -> None:
+    def maker() -> str:
+        motif = sample_motif(rng)
+        copies = rng.choice([2, 3, 4, 5, 6])
+        motifs = [motif] * copies
+        return place_motifs(rng, motifs, gc=rng.uniform(0.28, 0.72))
+
+    fill(seqs, seen, n, maker)
+
+
+def make_promoters(rng: random.Random, seqs: list[str], seen: set[str], n: int) -> None:
+    tata = BY_CLASS["core_promoter"]
+    upstream_classes = ["ubiquitous", "signaling", "nuclear_receptor", "forkhead", "immune"]
+
+    def maker() -> str:
+        seq = random_bg(rng, rng.uniform(0.42, 0.68))
+        if rng.random() < 0.65:
+            seq = insert(seq, maybe_rc(expand_iupac(rng.choice(tata)[1], rng), rng), rng.randrange(72, 108))
+        if rng.random() < 0.75:
+            inr = expand_iupac("YYANWYY", rng)
+            seq = insert(seq, inr, rng.randrange(112, 132))
+        for pos in rng.sample(range(16, 76), rng.choice([1, 2, 3])):
+            motif = sample_motif(rng, [rng.choice(upstream_classes)])
+            concrete = maybe_rc(expand_iupac(motif[1], rng), rng)
+            if pos + len(concrete) < 95:
+                seq = insert(seq, concrete, pos)
+        return seq
+
+    fill(seqs, seen, n, maker)
+
+
+def make_enhancers(rng: random.Random, seqs: list[str], seen: set[str], n: int) -> None:
+    classes = [
+        "ubiquitous",
+        "signaling",
+        "immune",
+        "bhlh",
+        "lineage",
+        "forkhead",
+        "nuclear_receptor",
+        "development",
+        "homeobox",
+        "stress",
+    ]
+
+    def maker() -> str:
+        k = rng.choice([4, 5, 6, 7, 8])
+        chosen = [sample_motif(rng, [rng.choice(classes)]) for _ in range(k)]
+        return place_motifs(rng, chosen, gc=rng.uniform(0.30, 0.68))
+
+    fill(seqs, seen, n, maker)
+
+
+def make_mutational_contrasts(rng: random.Random, seqs: list[str], seen: set[str], n: int) -> None:
+    target = len(seqs) + n
+    while len(seqs) < target:
+        motif = sample_motif(rng)
+        concrete = maybe_rc(expand_iupac(motif[1], rng), rng)
+        pos = rng.randrange(12, SEQ_LEN - len(concrete) - 12)
+        bg = markov_bg(rng, rng.uniform(0.32, 0.68))
+        positive = insert(bg, concrete, pos)
+        add_unique(seqs, seen, positive)
+        if len(seqs) >= target:
+            break
+        if rng.random() < 0.5:
+            decoy = insert(bg, mutate(concrete, rng, rng.choice([1, 2, 3])), pos)
+        else:
+            decoy = insert(bg, shuffle_seq(concrete, rng), pos)
+        add_unique(seqs, seen, decoy)
+
+
+def main() -> None:
     rng = random.Random(SEED)
-    genome = open_genome()
-    seqs = []
-    seqs.extend(genomic_ccre_sequences(rng, genome, 36000))
-    seqs.extend(random_genomic_sequences(rng, genome, 6000))
-    seqs.extend(synthetic_sequences(rng, 8000))
-    if len(seqs) < TARGET:
-        seqs.extend(synthetic_sequences(rng, TARGET - len(seqs)))
+    seqs: list[str] = []
+    seen: set[str] = set()
+
+    make_backgrounds(rng, seqs, seen, 8_000)
+    make_singletons(rng, seqs, seen, 9_000)
+    make_pairs(rng, seqs, seen, 11_000)
+    make_triples(rng, seqs, seen, 8_000)
+    make_homotypic(rng, seqs, seen, 5_000)
+    make_promoters(rng, seqs, seen, 3_500)
+    make_enhancers(rng, seqs, seen, 3_500)
+    make_mutational_contrasts(rng, seqs, seen, 2_000)
+
+    assert len(seqs) == N_SEQUENCES
     rng.shuffle(seqs)
-    seqs = dedupe_fill(seqs, rng)
-    os.makedirs(os.path.dirname(OUT), exist_ok=True)
-    with open(OUT, "w") as fh:
-        for seq in seqs:
-            fh.write(seq + "\n")
-    assert len(seqs) == TARGET
-    assert all(valid(seq) for seq in seqs)
+    assert len(set(seqs)) == N_SEQUENCES
+    assert all(len(s) == SEQ_LEN and set(s) <= set("ACGT") for s in seqs)
+
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    OUT.write_text("\n".join(seqs) + "\n")
 
 
 if __name__ == "__main__":

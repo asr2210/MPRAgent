@@ -1,111 +1,75 @@
-# MPRA Training Library Design Lab Notebook
-**Date:** Wednesday, May 27, 2026  
-**Author:** Gemini CLI (Autonomous Software Engineering Agent)  
-**Experiment:** 50,000-Sequence Massively Parallel Reporter Assay (MPRA) Generalist Training Library  
+# Lab Notebook: MPRA Library Design
+
+## 1. Theory of What Makes a Good MPRA Training Library
+
+The primary objective of this Masses Parallel Reporter Assay (MPRA) library is to train a model of gene regulatory activity that generalizes across **ALL cell types**, rather than being specific to any individual cell line. 
+
+To achieve high training performance-to-size ratio (using exactly 50,000 sequences of 200bp), the designed library must satisfy several theoretical criteria:
+
+1. **High Concentration of Functional Sequence Grammar (High Signal-to-Noise):** Fully random synthetic sequences (e.g. uniform i.i.d. {A,C,G,T}) are mostly inactive in eukaryotic cells. While a small fraction of random sequences is helpful to establish the model's baseline "noise/background floor," too much random sequence wastes valuable library capacity. Instead, the library should be enriched for sequences that contain real, functional regulatory elements (promoters and enhancers) with high affinity for human transcription factors (TFs).
+2. **Cell-Type/Tissue Program Diversity:** To train a model that generalizes across all tissues, the library must contain sequences that represent a comprehensive and diverse set of regulatory programs. If the library is heavily biased towards ubiquitous, housekeeping, or cell-line-specific elements (e.g., only active in K562), the model will fail to learn the regulatory grammar of tissue-specific transcription factors. A uniform, stratified representation across major developmental lineages and tissue programs is essential.
+3. **High Signal Strength & Quality (Robustness):** Highly accessible genomic regions with strong experimental signals have well-defined, robust TF binding site combinations and high-affinity motifs. Training a model on these high-confidence functional peaks is far more effective than training on weak, low-signal, or ambiguous regions that could represent genomic noise.
+4. **Precise Sequence Alignment (Center-Alignment on Summits):** Transcription factor binding site clusters are typically located at the center of chromatin accessibility peaks. If we extract arbitrary 200bp windows from open chromatin regions, we risk cutting off or splitting key regulatory motifs. Centering the 200bp window precisely at the **peak summit** maximizes the integrity of the active cis-regulatory element.
 
 ---
 
-## 1. Introduction & Executive Summary
-In this project, we designed a **50,000-sequence, 200bp library** for a Massively Parallel Reporter Assay (MPRA) to train a deep learning model of gene regulatory activity. The key constraint is that the trained model must generalize across **all** human cell types and capture the general "regulatory grammar," rather than overfitting to specific assay cell lines (K562, HepG2, SK-N-SH).
+## 2. Sources of Data and Sequence Types Considered
 
-To achieve this, we transitioned from traditional "discovery-focused" MPRA libraries to a **"grammar-learning" DL-focused training library**. Our final library consists of a carefully balanced mixture of three primary sequence classes:
-1. **Diverse Active Elements (70% - 35,000 sequences):** Drawn from the **ENCODE3 Registry of Candidate Cis-Regulatory Elements (cCREs)**. This provides a rich and cell-type-agnostic baseline of functional human promoters, proximal/distal enhancers, insulators, and other open chromatin states.
-2. **Genomic Negatives (20% - 10,000 sequences):** Random 200bp genomic windows that do not overlap with any known cCRE or active element. These serve as realistic, evolutionary background negatives that maintain natural GC content, repeat structure, and oligonucleotide distributions.
-3. **Synthetic Sequence Probes (10% - 5,000 sequences):** Split evenly between fully random synthetic sequences and "motif-on-background" synthetic sequences. The latter feature ubiquitous, high-impact transcription factor motifs (AP-1, CTCF, Sp1, NF-kB, TATA, YY1, CREB) inserted at varying densities, orientations, and positions to act as clean, causal grammar rules for deep learning training.
+We comprehensively evaluated public biological datasets available in the environment to choose our source material:
 
-The library was generated deterministically using a fixed random seed of `42` to guarantee exact reproducibility. Format validation confirmed 100% compliance: exactly 50,000 lines, exactly 200bp per sequence, and containing strictly `{A, C, G, T}` characters.
+### Included:
+* **Meuleman et al. (2020) DHS Index & Vocabulary (hg38):**
+  * **Why included:** This dataset is a master list of ~3.59 million DNase Hypersensitivity Sites (DHS) across 733 human biosamples, representing the comprehensive open-chromatin landscape of human biology. Crucially, the authors applied Non-negative Matrix Factorization (NMF) to classify each peak into one of 16 physiological components (tissue/cell-type accessibility programs), including a `Tissue invariant` program (housekeeping) and 15 highly tissue-specific programs (e.g., `Neural`, `Lymphoid`, `Myeloid / erythroid`, `Cardiac`, `Primitive / embryonic`). This allows us to perform precise **physiological stratification**, ensuring the model learns the regulatory grammar of all cell types.
+  * **How we use it:** We select the top highest-signal, robust peaks from each of the 16 components to guarantee both active sequence grammar and diverse cellular program coverage.
 
----
-
-## 2. Theoretical Framework: What Makes a Good MPRA Training Library?
-Traditional MPRA designs focus on testing specific SNPs (GWAS/eQTL hits) or specific cell-line-specific promoters. While useful for validating specific hypotheses, such libraries make poor training datasets for deep learning models because:
-- **Severe Class Imbalance:** They often contain only active or highly related sequences, preventing the model from learning what makes a sequence *inactive* or background.
-- **Low Sequence Space Coverage:** They represent a tiny fraction of sequence space, leading to models that easily overfit to local sequence features.
-- **Confounded Signals:** Natural genomic sequences often contain overlapping, complex motifs that make it hard for a model to deconvolute individual transcription factor (TF) contributions.
-
-An optimal training library should optimize the **learning of regulatory grammar** by embodying the following principles:
-- **Cell-Type Agnosticism:** Rather than choosing elements based on accessibility in a single cell line, the library should use a unified registry (like ENCODE cCREs) that integrates data across hundreds of biosamples.
-- **A Balanced Positive/Negative Ratio:** The library must contain biologically realistic negative sequences (genomic negatives) to define the boundaries of active regulatory space.
-- **Causal Perturbations & Synthetic Grammar:** Purely genomic sequences show high correlation but don't always prove causation. Synthetic sequences with inserted consensus motifs ("motif-on-background") provide direct, unconfounded causal signal for the model to learn motif combination, spacing, and orientation grammar.
-- **Sequence Diversity:** Incorporating both natural genomic and fully random synthetic sequences ensures maximum coverage of the sequence space.
+### Excluded:
+* **Fully Random Synthetic Sequences:**
+  * **Why excluded:** Analysis of prior baseline strategies (Table 1 & 2) shows that adding 50% synthetic sequences (`dhs_synth`) leads to slightly lower performance than pure DHS-based sequences (`dhs_topic`), and fully random sequences (`synth_oracle`) establish a low coverage floor. Our objective is to maximize the training performance-to-size ratio of 50k sequences, so we dedicate 100% of our capacity to real, high-signal, biological sequences.
+* **ENCODE candidate Cis-Regulatory Elements (cCREs):**
+  * **Why excluded:** Although ENCODE cCREs are highly curated, they lack the 16-component cell-type program annotations present in the Meuleman et al. DHS Index. Sampling from cCREs without these annotations risks introducing heavy cell-line bias (over-representing well-studied cell lines like K562/GM12878). The Meuleman DHS index is a superior backbone for cell-type program stratification.
+* **Prior MPRA Datasets:**
+  * **Why excluded:** These datasets represent a constrained subset of the sequence space and have already been selected under the biases of prior experiments, which limits generalization.
 
 ---
 
-## 3. Data Sources & Sequence Types Considered
+## 3. Specific Design Decisions and Reasoning
 
-We considered and evaluated several data sources:
+Our library consists of exactly 50,000 sequences of 200bp, designed with the following decisions:
 
-### A. DNase Hypersensitivity Sites (DHS) Index (Meuleman et al. 2020)
-*   **Pros:** Represents ~3.6 million open chromatin regions across 733 biosamples. Very high functional relevance.
-*   **Cons:** Very large file sizes, can contain tissue-specific biases depending on how they are sampled.
-*   **Decision:** **Included (via ENCODE cCREs).** The ENCODE registry directly integrates DHS peaks with histone modifications to classify these sites into functional sub-classes, which is cleaner and more structured for library design than raw DHS peaks.
-
-### B. SEI Chromatin State Regions (Chen et al. 2022)
-*   **Pros:** Highly predictive 40-class annotation of the human genome representing various promoter, enhancer, CTCF, and heterochromatin/low-signal states.
-*   **Cons:** Complex coordinates, huge file sizes, and high model dependency.
-*   **Decision:** **Partially replaced by cCREs + Genomic Negatives.** We replicated the diversity of SEI's chromatin states by utilizing the five ENCODE cCRE classes (PLS, pELS, dELS, CTCF, DNase-only) and explicitly sampling genomic negatives to represent the "low signal / heterochromatin" background.
-
-### C. ENCODE Candidate Cis-Regulatory Elements (cCREs)
-*   **Pros:** Unified, high-confidence registry of ~926,535 elements. Divided into clear, biological categories (Promoters, Proximal/Distal Enhancers, CTCF, DNase-only).
-*   **Cons:** None.
-*   **Decision:** **Included as our primary positive source (35,000 sequences).** By sampling from all five categories, we ensure representation of all regulatory roles across the human genome.
-
----
-
-## 4. Specific Design Decisions & Implementation Details
-
-### 1. Active Elements Sampling (70% - 35,000 sequences)
-To capture diverse regulatory behaviors, we sampled across the five ENCODE cCRE categories:
-- **PLS (Promoter-like signature, 10,000 sequences):** Captures core promoter elements (TATA boxes, Initiators, GC-rich CpG islands, Sp1 binding).
-- **pELS (Proximal Enhancer-like signature, 10,000 sequences) & dELS (Distal Enhancer-like signature, 10,000 sequences):** Captures cell-type-specific and ubiquitous enhancer grammar.
-- **CTCF-only (3,000 sequences):** Captures structural insulation grammar governed by CTCF binding.
-- **DNase-H3K4me3 (2,000 sequences):** Captures open chromatin elements that are active but don't fit standard promoter/enhancer signatures.
-
-*Extraction Logic:* For each selected cCRE, we calculated its genomic center: `center = (start + end) // 2`. We then extracted exactly 200bp centered at this coordinate: `[center - 100, center + 100]`. This ensures the sequence contains the highest-density signal/peak of the regulatory element.
-
-### 2. Genomic Negatives (20% - 10,000 sequences)
-To teach the model to recognize non-functional DNA, we implemented a robust **rejection sampling pipeline** to select 10,000 200bp windows:
-- We restricted sampling to the primary chromosomes (`chr1`-`chr22`, `chrX`, `chrY`) proportional to chromosome length.
-- For each random coordinates choice, we performed a **binary search** (using python's `bisect` library) against a sorted list of all ENCODE cCREs on that chromosome. If any overlap was detected, the sequence was rejected.
-- We fetched the sequence and checked for any non-ACGT bases (such as `N`s). If any were present, the sequence was rejected.
-- This creates an exceptionally high-quality negative set representing real human non-functional DNA.
-
-### 3. Synthetic & Motif Grammar (10% - 5,000 sequences)
-We generated 5,000 synthetic sequences to expand sequence space coverage and provide clean causal signals:
-- **Random Synthetic (2,500 sequences):** Generated from an i.i.d. background with target GC content varying uniformly between 35% and 65%.
-- **Motif-Inserted Synthetic (2,500 sequences):** Generated from a background with GC content varying between 35% and 65%. We inserted between 1 and 3 transcription factor motifs from a list of ubiquitous, high-impact regulators:
-  - **AP-1 (FOS/JUN):** `TGAGTCA` or `TGACTCA` (Pioneer/Activator)
-  - **CTCF:** `CCACCAGGGGGCGGC` or `GCCGCCCCCTGGTGG` (Insulator)
-  - **Sp1:** `GGGCGG` or `CCGCCC` (Promoter-associated GC-box)
-  - **NF-kB:** `GGGAATTTCC` or `GGAAATTCCC` (Strong activator)
-  - **TATA-box:** `TATAAA` or `TTTATA` (Promoter initiator)
-  - **YY1:** `CCGCCATTTT` or `AAAATGGCGG` (Ubiquitous regulator)
-  - **CREB:** `TGACGTCA` (Activity-dependent regulator)
-- *Spacing Constraint:* Motifs were inserted at random, non-overlapping positions, and kept at least 10bp away from the sequence edges. This prevents assay-related boundary issues (such as restriction site clipping or poor transcription start sites) and ensures robust expression measurements.
+1. **Cell-Type Program Stratified Sampling (16 Components):**
+   * We divide the library into 16 balanced cohorts corresponding to the 16 NMF components from the Meuleman et al. dataset.
+   * We select exactly **3,125 sequences from each of the 16 components** (16 * 3,125 = 50,000).
+   * **Reasoning:** This guarantees that the model receives exactly equal exposure (6.25% of the library) to every major lineage and tissue-specific program (as well as the ubiquitous housekeeping program), preventing bias and maximizing cross-cell-type generalization.
+2. **Deterministic High-Signal Selection:**
+   * Within each of the 16 components, we sort all candidate peaks by `mean_signal` in descending order and select the top peaks.
+   * **Reasoning:** In contrast to random or proportional sampling (which can select weak or inactive peaks), choosing the top peaks ensures that every single sequence in our 50,000 library is a robust, high-affinity functional element with clean sequence grammar.
+3. **Peak-Summit Centered Windows (200bp):**
+   * For each selected peak, we define the 200bp window as `[summit - 100, summit + 100]` where `summit` is the exact base coordinate of the accessibility peak summit.
+   * **Reasoning:** This places the core TF binding site cluster precisely at the center of our 200bp sequence, keeping the functional motifs fully intact.
+4. **Strict Genomic Deduplication (Non-Overlapping):**
+   * We ensure that no two selected sequences overlap in coordinates. If a candidate peak overlaps with an already selected region, we skip it.
+   * **Reasoning:** Wastes no library capacity on duplicate or redundant sequence segments.
+5. **Rigorous Quality Control (QC) Filters:**
+   * **No 'N' characters:** Any sequence containing 'N' is discarded.
+   * **Homopolymer filter:** We discard any sequence containing a homopolymer run of length 13 or greater (e.g., `A*13`, `C*13`, `G*13`, `T*13`).
+   * **GC content filter:** We restrict GC content to be between 20% and 80% inclusive.
+   * **Reasoning:** These filters eliminate low-complexity noise, and conform to the standard technical constraints of high-throughput DNA synthesis and sequencing.
 
 ---
 
-## 5. Analyses & Validation Results
-We ran comprehensive local checks to verify our library file format and sequence properties before final submission:
-- **Line Count:** Exactly 50,000 lines in `library/sequences.txt` and `library/metadata.txt`.
-- **Length Distribution:** Every single line is exactly 200 characters long.
-- **Character Validity:** Strictly contains uppercase characters `{A, C, G, T}`. Zero non-ACGT characters or lowercase letters were found.
-- **Sampling Summary:**
-  - PLS: 10,000 elements (0 skipped)
-  - pELS: 10,000 elements (0 skipped)
-  - dELS: 10,000 elements (0 skipped)
-  - CTCF-only: 3,000 elements (0 skipped)
-  - DNase-H3K4me3: 2,000 elements (0 skipped)
-  - Genomic Negatives: 10,000 elements (Skipped 1,618 due to cCRE overlap, 562 due to non-ACGT bases)
-  - Synthetic Random: 2,500 elements
-  - Synthetic Motif-Inserted: 2,500 elements
+## 4. Analyses Ran and Key Findings
 
-This demonstrates the extreme robust and reliable execution of the pipeline.
+1. **DHS Component Frequencies and Signal Distribution:**
+   * We ran an analysis of the ~3.59M DHS peak pool and mapped the distribution of the 16 components.
+   * *Finding:* The components range in size from 56,186 peaks (`Stromal A`) to 626,541 peaks (`Primitive / embryonic`). Despite these differences in size, the top peaks in every single component have exceptionally high signal (max signal > 16 across all, and mostly > 40). Thus, taking 3,125 high-signal peaks from each component is fully viable and yields robust peaks even in the smallest component.
+2. **Genomic FASTA Extraction and QC Validation:**
+   * We verified that the genome chromosome FASTA files are present locally under `mpra_autoresearch/data/` and wrote an on-demand cache reader.
+   * *Finding:* Testing our pipeline with the proposed QC filters (GC 20-80%, no homopolymers > 12bp, no 'N' characters) on the entire 3.59M dataset showed that we can extract exactly 3,125 high-quality, non-overlapping, peak-centered sequences for all 16 components successfully, totaling exactly 50,000 sequences.
 
 ---
 
-## 6. What We Would Try Next
-If we had additional rounds of design and testing, we would explore:
-1. **In Silico Mutagenesis (ISM) Suite:** We would take a subset of our high-confidence active elements (promoters/enhancers) and include their mutated or motif-shuffled counterparts. This would create paired-design training sequences to teach the model exactly how single nucleotide or motif-level changes affect activity at specific loci.
-2. **Promoter/Enhancer Positional Tiling:** We would tile across a selected set of promoters from -300 to +100 relative to the TSS in 50bp steps to systematically train the model on positional syntax and distance-dependent activity curves.
-3. **Cooperative Distance Scans:** We would design synthetic sequences where pairs of motifs (e.g. AP-1 and NF-kB) are placed at precise distances from each other (from 5bp to 100bp) to explicitly train the model on cooperative spacing constraints and helical orientation constraints.
+## 5. What We Would Try Next
+
+If we had more trials, we would explore:
+1. **Motif-density Optimization:** We would scan the selected sequences with a motif database (like JASPAR) to ensure a high diversity of transcription factor binding motifs within the selected sequences, or to prioritize peaks that have a high density of non-redundant motifs.
+2. **Active GC Balancing:** We would tune the GC content of selected sequences to match the GC distribution of highly active promoters and enhancers in MPRAs.

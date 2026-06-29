@@ -1,277 +1,178 @@
+#!/usr/bin/env python3
+"""
+generate.py - MPRA Library Generator
+Generates an optimized, highly functional, and diverse 50,000-sequence MPRA library.
+Stratified across 16 biological components (cell-type programs) from the Meuleman et al. (2020) DHS index.
+For each component, the top 3,125 highest-signal, non-overlapping, QC-passed peaks are selected.
+"""
+
 import os
 import sys
-import random
-import bisect
-import collections
-import time
-import pyfaidx
+import gzip
+import pandas as pd
+import numpy as np
+
+# Paths
+DHS_INDEX_PATH = '/data/users/arao/mpra_autoresearch/data/dhs/DHS_Index_and_Vocabulary_hg38_WM20190703.txt.gz'
+GENOME_DIR = '/data/users/arao/mpra_autoresearch/data/'
+OUTPUT_DIR = 'library'
+OUTPUT_FILE = os.path.join(OUTPUT_DIR, 'sequences.txt')
+
+# Caching for loaded chromosome sequences
+chrom_seqs = {}
+
+def get_sequence(chrom, start, end):
+    """Loads and caches chromosome fasta, and returns the requested substring."""
+    if chrom not in chrom_seqs:
+        fasta_path = os.path.join(GENOME_DIR, f'{chrom}.fa')
+        if not os.path.exists(fasta_path):
+            print(f'Warning: Chromosome file not found at {fasta_path}. Skipping.', file=sys.stderr)
+            return None
+        print(f'Loading chromosome {chrom} into memory...', file=sys.stderr)
+        with open(fasta_path, 'r') as f:
+            f.readline() # Skip header
+            # Read sequence, remove newlines, and convert to uppercase
+            chrom_seqs[chrom] = f.read().replace('\n', '').upper()
+    
+    seq = chrom_seqs[chrom][start:end]
+    return seq
+
+def passes_qc(seq):
+    """Applies biological and technical quality control (QC) filters."""
+    # Ensure exact length of 200bp
+    if len(seq) != 200:
+        return False
+        
+    # Ensure only standard ACGT characters
+    if not all(c in 'ACGT' for c in seq):
+        return False
+        
+    # Limit GC content between 20% and 80% inclusive
+    gc_content = (seq.count('C') + seq.count('G')) / 200.0
+    if gc_content < 0.20 or gc_content > 0.80:
+        return False
+        
+    # Exclude sequences with long homopolymer runs (>= 13bp) to avoid synthesis errors
+    for base in 'ACGT':
+        if base * 13 in seq:
+            return False
+            
+    return True
 
 def main():
-    # Set random seed for reproducibility
-    random.seed(42)
-
-    print("Starting library generation...")
-    start_time = time.time()
-
-    # Define primary chromosomes to use
-    PRIMARY_CHROMS = set([f"chr{i}" for i in range(1, 23)] + ["chrX", "chrY"])
-
-    # 1. Parse chromosome lengths from hg38.fa.fai
-    chrom_lengths = {}
-    with open("data/hg38.fa.fai", "r") as f:
-        for line in f:
-            parts = line.strip().split("\t")
-            if parts[0] in PRIMARY_CHROMS:
-                chrom_lengths[parts[0]] = int(parts[1])
-
-    print(f"Loaded {len(chrom_lengths)} chromosome lengths.")
-
-    # 2. Parse cCRE BED file and group by category and chromosome
-    # Categories of interest: PLS, pELS, dELS, CTCF-only, DNase-H3K4me3
-    # We will keep track of cCRE intervals for overlap checking in genomic negatives
-    ccre_by_chrom = collections.defaultdict(list)
-    ccre_by_category = collections.defaultdict(list)
-
-    print("Parsing ENCODE cCRE BED file...")
-    ccre_parse_start = time.time()
-    with open("data/encodeCcreCombined.bed", "r") as f:
-        for line in f:
-            parts = line.strip().split("\t")
-            chrom = parts[0]
-            if chrom not in PRIMARY_CHROMS:
-                continue
-            
-            start = int(parts[1])
-            end = int(parts[2])
-            category = parts[10] # e.g. PLS, pELS, dELS, CTCF-only, DNase-H3K4me3
-            
-            # Store coordinate for overlap checking
-            ccre_by_chrom[chrom].append((start, end))
-            
-            # Store for category sampling
-            ccre_by_category[category].append((chrom, start, end))
-
-    print(f"Parsed BED file in {time.time() - ccre_parse_start:.2f} seconds.")
-    for cat, items in ccre_by_category.items():
-        print(f"  Category '{cat}': {len(items)} elements")
-
-    # 3. Sort and merge cCRE intervals per chromosome for efficient overlap checking
-    # Sorting is required for binary search / bisect
-    print("Sorting cCRE intervals per chromosome...")
-    for chrom in ccre_by_chrom:
-        ccre_by_chrom[chrom].sort()
-
-    # Define overlap check function using binary search
-    def check_overlap(chrom, interval_start, interval_end):
-        intervals = ccre_by_chrom.get(chrom, [])
-        if not intervals:
-            return False
+    print('Starting MPRA library generation...', file=sys.stderr)
+    
+    # Create output directory
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    
+    # Load columns of interest from the DHS index
+    print('Loading Meuleman et al. (2020) DHS index...', file=sys.stderr)
+    cols = ['seqname', 'start', 'end', 'mean_signal', 'summit', 'component']
+    with gzip.open(DHS_INDEX_PATH, 'rt') as f:
+        df = pd.read_csv(f, sep='\t', usecols=cols)
+    print(f'Successfully loaded {len(df):,} total DHS peaks.', file=sys.stderr)
+    
+    # Sort the peaks by mean_signal descending to prioritize highest active regions
+    print('Sorting peaks by mean_signal descending...', file=sys.stderr)
+    df_sorted = df.sort_values(by='mean_signal', ascending=False)
+    
+    # Setup selection trackers
+    components = df['component'].unique()
+    print(f'Identified {len(components)} biological components for stratification:', file=sys.stderr)
+    for comp in sorted(components):
+        print(f' - {comp}', file=sys.stderr)
         
-        # Binary search
-        idx = bisect.bisect_right(intervals, (interval_start, float('inf'))) - 1
-        if idx >= 0:
-            if intervals[idx][1] > interval_start:
-                return True
-        if idx + 1 < len(intervals):
-            if intervals[idx + 1][0] < interval_end:
+    target_per_component = 3125
+    selected_by_component = {comp: [] for comp in components}
+    
+    # Deduplication map to prevent selecting overlapping regions (chrom -> list of selected (start, end))
+    selected_regions = {}
+    
+    def overlaps(chrom, start, end):
+        if chrom not in selected_regions:
+            return False
+        for s, e in selected_regions[chrom]:
+            if max(start, s) < min(end, e):
                 return True
         return False
-
-    # 4. Open genome FASTA
-    print("Opening hg38.fa genome...")
-    genome = pyfaidx.Fasta('data/hg38.fa')
-
-    # Target counts for active elements
-    target_counts = {
-        "PLS": 10000,
-        "pELS": 10000,
-        "dELS": 10000,
-        "CTCF-only": 3000,
-        "DNase-H3K4me3": 2000
-    }
-
-    sequences = []
-    metadata = [] # To document the origin of each sequence
-
-    # Helper function to validate sequence (only {A, C, G, T} and length 200)
-    def validate_seq(seq):
-        if len(seq) != 200:
-            return False
-        return all(c in "ACGT" for c in seq)
-
-    # 5. Sample active elements from each cCRE category
-    for category, target_count in target_counts.items():
-        print(f"Sampling {target_count} elements from category '{category}'...")
-        candidates = ccre_by_category.get(category, [])
         
-        # Shuffle candidates to get a diverse random selection
-        random.shuffle(candidates)
+    print('\nSelecting optimized sequences from each cell-type program...', file=sys.stderr)
+    processed_count = 0
+    
+    for idx, row in df_sorted.iterrows():
+        comp = row['component']
         
-        count = 0
-        skipped_non_acgt = 0
-        
-        for chrom, start, end in candidates:
-            if count >= target_count:
-                break
-                
-            # Get center of cCRE and extract exactly 200bp
-            center = (start + end) // 2
-            seq_start = center - 100
-            seq_end = center + 100
+        # Check if we already reached our quota for this component
+        if len(selected_by_component[comp]) >= target_per_component:
+            continue
             
-            # Check boundaries
-            if seq_start < 0 or seq_end > chrom_lengths[chrom]:
-                continue
-                
-            # Query sequence
-            seq = str(genome[chrom][seq_start:seq_end]).upper()
+        chrom = row['seqname']
+        summit = int(row['summit'])
+        start = summit - 100
+        end = summit + 100
+        
+        if start < 0:
+            continue
             
-            if validate_seq(seq):
-                sequences.append(seq)
-                metadata.append(f"cCRE|{category}|{chrom}:{seq_start}-{seq_end}")
-                count += 1
-            else:
-                skipped_non_acgt += 1
-                
-        print(f"  Successfully sampled {count} elements (skipped {skipped_non_acgt} containing non-ACGT bases).")
-        if count < target_count:
-            print(f"WARNING: Could only sample {count} elements instead of {target_count} target!")
-
-    # 6. Sample Inactive Elements (Genomic Negatives)
-    print("Sampling 10,000 genomic negatives...")
-    neg_target = 10000
-    neg_count = 0
-    neg_skipped_overlap = 0
-    neg_skipped_non_acgt = 0
-
-    # Build chromosome selection distribution based on chromosome length
-    chrom_list = list(chrom_lengths.keys())
-    chrom_weights = [chrom_lengths[c] for c in chrom_list]
-
-    while neg_count < neg_target:
-        # Sample chromosome proportional to its length
-        chrom = random.choices(chrom_list, weights=chrom_weights, k=1)[0]
-        length = chrom_lengths[chrom]
-        
-        # Random start coordinate
-        start = random.randint(1000, length - 1200)
-        end = start + 200
-        
-        # Check overlap with any cCRE on this chromosome
-        if check_overlap(chrom, start, end):
-            neg_skipped_overlap += 1
+        # Ensure no overlap with previously selected intervals
+        if overlaps(chrom, start, end):
             continue
             
         # Extract sequence
-        seq = str(genome[chrom][start:end]).upper()
-        
-        if validate_seq(seq):
-            sequences.append(seq)
-            metadata.append(f"genomic_negative|{chrom}:{start}-{end}")
-            neg_count += 1
-        else:
-            neg_skipped_non_acgt += 1
-
-    print(f"Successfully sampled {neg_count} genomic negatives.")
-    print(f"  (Skipped {neg_skipped_overlap} due to cCRE overlap, {neg_skipped_non_acgt} due to non-ACGT bases).")
-
-    # 7. Generate Synthetic Sequences
-    # We want 5,000 synthetic sequences in total:
-    # - 2,500 random synthetic
-    # - 2,500 motif-inserted synthetic
-    print("Generating 5,000 synthetic sequences...")
-    
-    MOTIFS = {
-        "AP-1": ["TGAGTCA", "TGACTCA"],
-        "CTCF": ["CCACCAGGGGGCGGC", "GCCGCCCCCTGGTGG"],  # Forward and RC
-        "Sp1": ["GGGCGG", "CCGCCC"],
-        "NF-kB": ["GGGAATTTCC", "GGAAATTCCC"],
-        "TATA": ["TATAAA", "TTTATA"],
-        "YY1": ["CCGCCATTTT", "AAAATGGCGG"],
-        "CREB": ["TGACGTCA"]
-    }
-
-    def generate_synthetic(target_gc, insert_motifs):
-        p_gc = target_gc / 2.0
-        p_at = (1.0 - target_gc) / 2.0
-        bases = ['A', 'C', 'G', 'T']
-        weights = [p_at, p_gc, p_gc, p_at]
-        
-        seq_chars = random.choices(bases, weights=weights, k=200)
-        
-        if insert_motifs:
-            # Number of motifs to insert (1 to 3)
-            num_motifs = random.randint(1, 3)
-            selected_motif_names = random.sample(list(MOTIFS.keys()), num_motifs)
+        seq = get_sequence(chrom, start, end)
+        if seq is None:
+            continue
             
-            occupied = []
-            for name in selected_motif_names:
-                motif_seq = random.choice(MOTIFS[name])
-                m_len = len(motif_seq)
-                
-                # Try to place safely without overlap and away from edges
-                placed = False
-                for _ in range(50):
-                    pos = random.randint(10, 200 - m_len - 10)
-                    overlap = False
-                    for o_start, o_end in occupied:
-                        if not (pos + m_len <= o_start or pos >= o_end):
-                            overlap = True
-                            break
-                    if not overlap:
-                        seq_chars[pos:pos+m_len] = list(motif_seq)
-                        occupied.append((pos, pos+m_len))
-                        placed = True
-                        break
-                        
-        return "".join(seq_chars)
-
-    # Generate 2,500 pure random synthetic
-    syn_rand_count = 0
-    while syn_rand_count < 2500:
-        # Vary GC content between 35% and 65%
-        gc = random.uniform(0.35, 0.65)
-        seq = generate_synthetic(gc, insert_motifs=False)
-        if validate_seq(seq):
-            sequences.append(seq)
-            metadata.append(f"synthetic|random|gc:{gc:.3f}")
-            syn_rand_count += 1
-
-    # Generate 2,500 motif-inserted synthetic
-    syn_motif_count = 0
-    while syn_motif_count < 2500:
-        # Vary GC content between 35% and 65%
-        gc = random.uniform(0.35, 0.65)
-        seq = generate_synthetic(gc, insert_motifs=True)
-        if validate_seq(seq):
-            sequences.append(seq)
-            metadata.append(f"synthetic|motif_inserted|gc:{gc:.3f}")
-            syn_motif_count += 1
-
-    print(f"Generated {syn_rand_count} random synthetic and {syn_motif_count} motif-inserted synthetic sequences.")
-
-    # 8. Final verification
-    print(f"Total sequences generated: {len(sequences)}")
-    assert len(sequences) == 50000, f"Error: Generated {len(sequences)} sequences instead of 50,000!"
-
-    # Write sequences to sequences.txt
-    output_dir = "library"
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = os.path.join(output_dir, "sequences.txt")
-    
-    with open(output_path, "w") as f_out:
-        for seq in sequences:
-            f_out.write(seq + "\n")
+        # Apply QC filters
+        if not passes_qc(seq):
+            continue
             
-    # Write metadata map for tracking/analysis
-    metadata_path = os.path.join(output_dir, "metadata.txt")
-    with open(metadata_path, "w") as f_meta:
-        for meta in metadata:
-            f_meta.write(meta + "\n")
+        # Add to selected pool
+        selected_by_component[comp].append(seq)
+        
+        # Mark region as occupied
+        if chrom not in selected_regions:
+            selected_regions[chrom] = []
+        selected_regions[chrom].append((start, end))
+        
+        processed_count += 1
+        if processed_count % 1000 == 0:
+            print(f'Selected {processed_count} total sequences...', file=sys.stderr)
+            
+        # Check if all components are full
+        all_full = True
+        for c in components:
+            if len(selected_by_component[c]) < target_per_component:
+                all_full = False
+                break
+        if all_full:
+            print('All components successfully filled!', file=sys.stderr)
+            break
+            
+    # Final check of counts
+    print('\n--- Selection Summary ---', file=sys.stderr)
+    total_sequences = 0
+    final_sequences_list = []
+    
+    for comp in sorted(components):
+        count = len(selected_by_component[comp])
+        print(f'{comp}: {count:,} sequences selected.', file=sys.stderr)
+        total_sequences += count
+        final_sequences_list.extend(selected_by_component[comp])
+        
+    print(f'Total sequences: {total_sequences:,}', file=sys.stderr)
+    
+    if total_sequences != 50000:
+        print(f'Error: Expected exactly 50,000 sequences, but selected {total_sequences}.', file=sys.stderr)
+        sys.exit(1)
+        
+    # Write sequences to the output file (one per line)
+    print(f'Saving exactly 50,000 sequences to {OUTPUT_FILE}...', file=sys.stderr)
+    with open(OUTPUT_FILE, 'w') as out_f:
+        for seq in final_sequences_list:
+            out_f.write(f'{seq}\n')
+            
+    print('MPRA library generation completed successfully!', file=sys.stderr)
 
-    print(f"Successfully wrote 50,000 sequences to {output_path}")
-    print(f"Successfully wrote sequence metadata to {metadata_path}")
-    print(f"Total processing completed in {time.time() - start_time:.2f} seconds.")
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
